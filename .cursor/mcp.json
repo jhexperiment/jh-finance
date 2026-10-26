@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "react-docs": {
+      "command": "npx",
+      "args": ["-y", "react-docs-mcp"]
+    },
+    "nestjs-docs": {
+      "url": "https://gitmcp.io/nestjs/docs.nestjs.com"
+    },
+    "prisma-docs": {
+      "url": "https://gitmcp.io/prisma/docs"
+    },
+    "bullmq-docs": {
+      "url": "https://gitmcp.io/taskforcesh/bullmq"
+    },
+    "docker-docs": {
+      "url": "https://gitmcp.io/docker/docs"
+    }
+  }
+}
