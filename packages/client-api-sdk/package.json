@@ -1,0 +1,17 @@
+{
+  "name": "client-api-sdk",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "node ./scripts/generate.mjs"
+  },
+  "dependencies": {
+    "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

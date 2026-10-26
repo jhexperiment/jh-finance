@@ -9,3 +9,30 @@ Credit cards: Spending by category, a combined transaction list with a card filt
 Bank statements: Income and spending over time, where the money went, and a table of all four accounts. Each account (Checking 0182, Joint 3390, Savings 6617, High-yield savings 1158) has its own page.
 Investments and crypto: A summary of all five accounts with allocation charts and holdings. Each account has its own page: 401(k), Brokerage A, Brokerage B (company shares), Cold wallet, and Exchange account.
 Bills and insurance: Utilities (electricity, internet, water and sewer, natural gas) with usage and payment history, plus auto, renters, and health insurance summaries. Each utility has its own page. The insurance policies appear as summary cards only, without individual pages.
+
+## Run locally
+
+Requires Node `v24.4.0` (see `.nvmrc`) and pnpm `10.28.2`.
+
+```bash
+nvm use
+corepack enable
+pnpm install
+pnpm dev:web
+```
+
+The web app is a Vite + React workspace at [http://localhost:5173](http://localhost:5173). It uses design fixtures from `packages/shared` until `VITE_API_URL` points at the Nest client.
+
+Optional API + database:
+
+```bash
+cp .env.example .env.local
+docker compose up -d postgres dragonfly
+pnpm prisma:generate
+pnpm prisma:migrate:local
+pnpm prisma:seed:local
+pnpm dev:api:client:local
+pnpm dev:api:processor:local
+```
+
+Layout: `apps/api` (Nest client + processor), `apps/web` (Vite), `apps/dragonfly` (cache env), `packages/shared`, `packages/client-api-sdk`. See `app-structure.md`.

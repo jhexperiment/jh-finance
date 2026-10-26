@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["packages/shared/src"],
+      "shared/*": ["packages/shared/src/*"],
+      "client-api-sdk": ["packages/client-api-sdk/src"]
+    }
+  }
+}

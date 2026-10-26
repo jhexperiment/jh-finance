@@ -1,0 +1,79 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AccountKind {
+  CREDIT_CARD
+  BANK
+  INVESTMENT
+  CRYPTO
+}
+
+enum BillKind {
+  UTILITY
+  INSURANCE
+}
+
+model Account {
+  id        String      @id
+  name      String
+  kind      AccountKind
+  subtype   String
+  mask      String?
+  balance   Decimal     @db.Decimal(18, 2)
+  currency  String      @default("USD")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions Transaction[]
+  holdings     Holding[]
+  bills        Bill[]        @relation("PaidFrom")
+}
+
+model Transaction {
+  id          String   @id
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  postedAt    DateTime
+  description String
+  amount      Decimal  @db.Decimal(18, 2)
+  category    String?
+  status      String?
+  createdAt   DateTime @default(now())
+
+  @@index([accountId, postedAt])
+}
+
+model Holding {
+  id        String   @id
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id])
+  name      String
+  symbol    String?
+  quantity  Decimal  @db.Decimal(28, 8)
+  value     Decimal  @db.Decimal(18, 2)
+  costBasis Decimal  @db.Decimal(18, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId])
+}
+
+model Bill {
+  id              String    @id
+  name            String
+  kind            BillKind
+  amount          Decimal   @db.Decimal(18, 2)
+  dueAt           DateTime?
+  paidFromId      String?
+  paidFrom        Account?  @relation("PaidFrom", fields: [paidFromId], references: [id])
+  status          String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}

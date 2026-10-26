@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jh
+      POSTGRES_PASSWORD: jh
+      POSTGRES_DB: jh_finance
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U jh -d jh_finance']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.28.1
+    ulimits:
+      memlock: -1
+    ports:
+      - '6379:6379'
+    volumes:
+      - dragonfly_data:/data
+    command: ['--logtostderr']
+    healthcheck:
+      test: ['CMD-SHELL', "timeout 2 bash -c 'echo > /dev/tcp/127.0.0.1/6379'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:
+  dragonfly_data:

@@ -1,0 +1,36 @@
+{
+  "name": "jh-finance",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@parcel/watcher",
+      "@prisma/engines",
+      "esbuild",
+      "msgpackr-extract",
+      "prisma",
+      "unrs-resolver"
+    ]
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "dev:api:client:local": "pnpm --filter api dev:api:client:local",
+    "dev:api:processor:local": "pnpm --filter api dev:api:processor:local",
+    "dev:web": "pnpm --filter @jh-finance/web dev",
+    "test:api": "pnpm --filter api test",
+    "test:web": "pnpm --filter @jh-finance/web test",
+    "prisma:generate": "pnpm --filter api prisma:generate",
+    "prisma:migrate:local": "pnpm --filter api prisma:migrate:local",
+    "prisma:seed:local": "pnpm --filter api prisma:seed:local",
+    "client-api-sdk:generate": "pnpm --filter client-api-sdk generate"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "turbo": "^2.6.1"
+  }
+}

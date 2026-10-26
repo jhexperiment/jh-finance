@@ -1,0 +1,17 @@
+{
+  "name": "shared",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "exports": {
+    ".": "./src/index.ts",
+    "./money": "./src/money.ts",
+    "./types": "./src/types.ts",
+    "./fixtures": "./src/fixtures.ts"
+  },
+  "dependencies": {
+    "decimal.js": "^10.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
