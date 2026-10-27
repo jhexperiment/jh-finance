@@ -124,6 +124,13 @@ export interface BankAccount extends AccountSummary {
   secondaryAction: string
 }
 
+export interface WatchedChainAddress {
+  id: string
+  chain: string
+  address: string
+  lastSyncAt?: string | null
+}
+
 export interface Holding {
   id: string
   name: string
@@ -155,6 +162,7 @@ export interface InvestmentAccount extends AccountSummary {
   mix?: AllocationSlice[]
   holdings: Holding[]
   activity: ActivityRow[]
+  chainAddresses?: WatchedChainAddress[]
   extraTables?: { title: string; columns: string[]; rows: string[][] }[]
   callout?: { title: string; body: string }
   primaryAction: string

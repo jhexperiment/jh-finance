@@ -4,7 +4,8 @@
   "packageManager": "pnpm@10.28.2",
   "type": "module",
   "scripts": {
-    "pdf:cli": "tsx pdf/cli/pdf.ts"
+    "pdf:cli": "set -a && source .env.local && set +a && tsx pdf/cli/pdf.ts",
+    "chain:txs": "set -a && source .env.local && set +a && tsx chain/cli/chain.ts txs"
   },
   "dependencies": {
     "commander": "^14.0.2",

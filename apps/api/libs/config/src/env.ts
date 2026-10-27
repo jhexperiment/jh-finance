@@ -9,6 +9,9 @@ export const envSchema = z.object({
   API_PREFIX: z.string().default('v1'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
   DATA_DIR: z.string().default('data/documents'),
+  ETHERSCAN_API_KEY: z.string().optional(),
+  STELLAR_HORIZON_URL: z.string().optional(),
+  BLOCKDAEMON_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

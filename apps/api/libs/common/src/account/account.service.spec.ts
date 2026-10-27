@@ -30,6 +30,7 @@ describe('projectOverview', () => {
       transactions: [],
       holdings: [],
       bills: [],
+      chainAddresses: [],
     });
     expect(snapshot.netWorth).toBe('$0.00');
     expect(snapshot.attention).toHaveLength(0);

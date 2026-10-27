@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
 import { ActivityForm, RemoveButton } from '@/components/ledger/ActivityForm'
+import { ChainAddressForm } from '@/components/ledger/ChainAddressForm'
 import { HoldingForm } from '@/components/ledger/HoldingForm'
 import { BarChart } from '@/components/ui/BarChart'
 import { Card } from '@/components/ui/Card'
@@ -87,6 +88,9 @@ export function InvestmentDetailPage() {
           <KvList rows={data.details} />
         </Card>
       </section>
+      {data.kind === 'crypto' ? (
+        <ChainAddressForm accountId={data.id} addresses={data.chainAddresses ?? []} />
+      ) : null}
       <Card className="mt-6">
         <h2 className="m-0 text-base font-semibold">Holdings</h2>
         {data.holdings.length > 0 ? (

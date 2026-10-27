@@ -4,20 +4,26 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  fetchAddressTransactions,
   findBankByMask,
   findCardByMask,
+  IndexerError,
   newLedgerId,
   overlappingTransactions,
   parseBankStatement,
   parseCardStatement,
   ParseError,
+  toCreateTransactionInput,
   type BankStatementImportResult,
   type CardStatementImportResult,
+  type ChainAddressSyncResult,
   type ParsedBankStatement,
   type ParsedCardStatement,
 } from 'shared';
@@ -28,6 +34,8 @@ import { extractPdfText } from './pdf-text';
 
 @Injectable()
 export class IngestService {
+  private readonly logger = new Logger(IngestService.name);
+
   constructor(
     private readonly ledger: LedgerService,
     private readonly prisma: PrismaService,
@@ -217,6 +225,63 @@ export class IngestService {
       overlapCount,
       accounts,
     }
+  }
+
+  async syncChainAddress(addressId: string): Promise<ChainAddressSyncResult> {
+    if (!this.prisma.db) {
+      throw new ServiceUnavailableException('Database is not connected');
+    }
+    const snapshot = await this.ledger.snapshot();
+    const watched = snapshot.chainAddresses.find((row) => row.id === addressId);
+    if (!watched) {
+      throw new NotFoundException('Watched address not found');
+    }
+    const account = snapshot.accounts.find((row) => row.id === watched.accountId);
+    if (!account || account.kind !== 'crypto') {
+      throw new BadRequestException('Chain addresses can only sync on a crypto account.');
+    }
+
+    let txs;
+    try {
+      txs = await fetchAddressTransactions({
+        chain: watched.chain,
+        address: watched.address,
+        etherscanApiKey: this.env.ETHERSCAN_API_KEY,
+        horizonUrl: this.env.STELLAR_HORIZON_URL,
+        blockdaemonApiKey: this.env.BLOCKDAEMON_API_KEY,
+        onLog: (line) => this.logger.log(line),
+      });
+    } catch (error) {
+      const message = error instanceof IndexerError || error instanceof Error ? error.message : 'Indexer failed';
+      throw new BadRequestException(message);
+    }
+
+    const existing = new Set(
+      snapshot.transactions
+        .filter((row) => row.accountId === watched.accountId && row.externalId)
+        .map((row) => row.externalId as string),
+    );
+    let importedCount = 0;
+    let skippedCount = 0;
+    for (const tx of txs) {
+      const input = toCreateTransactionInput(watched.accountId, tx);
+      if (!input.externalId || existing.has(input.externalId)) {
+        skippedCount += 1;
+        continue;
+      }
+      existing.add(input.externalId);
+      await this.ledger.createTransaction(input);
+      importedCount += 1;
+    }
+    await this.ledger.touchChainAddress(watched.id);
+    return {
+      addressId: watched.id,
+      chain: watched.chain,
+      address: watched.address,
+      importedCount,
+      skippedCount,
+      fetchedCount: txs.length,
+    };
   }
 
   private async parseCardPdf(bytes: Uint8Array, filename: string): Promise<ParsedCardStatement> {

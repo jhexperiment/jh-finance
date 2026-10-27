@@ -10,6 +10,7 @@ import {
   DEFAULT_SUBTYPE,
   PRISMA_KIND_TO_ACCOUNT,
   PRISMA_KIND_TO_BILL,
+  assertWatchableKey,
   emptyLedger,
   isoFromDate,
   newLedgerId,
@@ -17,10 +18,12 @@ import {
   parseMoneyInput,
   type CreateAccountInput,
   type CreateBillInput,
+  type CreateChainAddressInput,
   type CreateHoldingInput,
   type CreateTransactionInput,
   type LedgerAccount,
   type LedgerBill,
+  type LedgerChainAddress,
   type LedgerHolding,
   type LedgerSnapshot,
   type LedgerTransaction,
@@ -29,7 +32,14 @@ import {
   type UpdateHoldingInput,
   type UpdateTransactionInput,
 } from 'shared';
-import { PrismaService, type AccountRecord, type BillRecord, type HoldingRecord, type TransactionRecord } from '../prisma/prisma.service';
+import {
+  PrismaService,
+  type AccountRecord,
+  type BillRecord,
+  type ChainAddressRecord,
+  type HoldingRecord,
+  type TransactionRecord,
+} from '../prisma/prisma.service';
 
 @Injectable()
 export class LedgerService {
@@ -39,11 +49,12 @@ export class LedgerService {
     const db = this.prisma.db;
     if (!db) return emptyLedger();
 
-    const [accounts, transactions, holdings, bills] = await Promise.all([
+    const [accounts, transactions, holdings, bills, chainAddresses] = await Promise.all([
       db.account.findMany({ orderBy: { createdAt: 'asc' } }),
       db.transaction.findMany({ orderBy: { postedAt: 'desc' } }),
       db.holding.findMany({ orderBy: { createdAt: 'asc' } }),
       db.bill.findMany({ orderBy: { createdAt: 'asc' } }),
+      db.chainAddress.findMany({ orderBy: { createdAt: 'asc' } }),
     ]);
 
     return {
@@ -51,6 +62,7 @@ export class LedgerService {
       transactions: transactions.map(fromTransactionRecord),
       holdings: holdings.map(fromHoldingRecord),
       bills: bills.map(fromBillRecord),
+      chainAddresses: chainAddresses.map(fromChainAddressRecord),
     };
   }
 
@@ -92,13 +104,16 @@ export class LedgerService {
     const db = this.requireDb();
     await this.requireAccount(input.accountId);
     const posted = parseDateInput(input.postedAt) ?? new Date();
+    const asset = input.asset?.trim() || null;
     const row = await db.transaction.create({
       data: {
         id: newLedgerId(),
         accountId: input.accountId,
         postedAt: posted,
         description: requiredName(input.description, 'Description'),
-        amount: parseAmount(input.amount),
+        amount: parseAmount(input.amount, asset ? 8 : 2),
+        asset,
+        externalId: input.externalId?.trim() || null,
         category: input.category?.trim() || null,
         status: input.status?.trim() || 'Posted',
       },
@@ -205,6 +220,54 @@ export class LedgerService {
     await db.bill.delete({ where: { id } });
   }
 
+  async createChainAddress(input: CreateChainAddressInput): Promise<LedgerChainAddress> {
+    const db = this.requireDb();
+    const account = await this.requireAccount(input.accountId);
+    if (account.kind !== 'CRYPTO') {
+      throw new BadRequestException('Chain addresses can only be added to a crypto account.');
+    }
+    const chain = input.chain.trim().toLowerCase();
+    const address = input.address.trim();
+    try {
+      assertWatchableKey(address, chain);
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : 'Invalid address');
+    }
+    const existing = await db.chainAddress.findMany({
+      where: { accountId: input.accountId, chain, address },
+    });
+    if (existing.length > 0) {
+      throw new BadRequestException('That address is already watched on this account.');
+    }
+    const row = await db.chainAddress.create({
+      data: {
+        id: newLedgerId(),
+        accountId: input.accountId,
+        chain,
+        address,
+      },
+    });
+    return fromChainAddressRecord(row);
+  }
+
+  async deleteChainAddress(id: string): Promise<void> {
+    const db = this.requireDb();
+    const existing = await db.chainAddress.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Watched address ${id} not found`);
+    await db.chainAddress.delete({ where: { id } });
+  }
+
+  async touchChainAddress(id: string): Promise<LedgerChainAddress> {
+    const db = this.requireDb();
+    const existing = await db.chainAddress.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Watched address ${id} not found`);
+    const row = await db.chainAddress.update({
+      where: { id },
+      data: { lastSyncAt: new Date() },
+    });
+    return fromChainAddressRecord(row);
+  }
+
   private requireDb() {
     const db = this.prisma.db;
     if (!db) {
@@ -245,9 +308,23 @@ function fromTransactionRecord(row: TransactionRecord): LedgerTransaction {
     postedAt: isoFromDate(row.postedAt) ?? new Date().toISOString(),
     description: row.description,
     amount: decimalString(row.amount),
+    asset: row.asset,
+    externalId: row.externalId,
     category: row.category,
     status: row.status,
     createdAt: isoFromDate(row.createdAt) ?? new Date().toISOString(),
+  };
+}
+
+function fromChainAddressRecord(row: ChainAddressRecord): LedgerChainAddress {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    chain: row.chain,
+    address: row.address,
+    lastSyncAt: isoFromDate(row.lastSyncAt),
+    createdAt: isoFromDate(row.createdAt) ?? new Date().toISOString(),
+    updatedAt: isoFromDate(row.updatedAt) ?? new Date().toISOString(),
   };
 }
 

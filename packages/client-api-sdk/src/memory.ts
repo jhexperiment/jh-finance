@@ -1,13 +1,17 @@
 import {
   applyCreateAccount,
   applyCreateBill,
+  applyCreateChainAddress,
   applyCreateHolding,
   applyCreateTransaction,
+  applyDeleteChainAddress,
   applyUpdateAccount,
   applyUpdateBill,
   commitBankStatement,
   commitCardStatement,
+  commitChainTransactions,
   emptyLedger,
+  fetchAddressTransactions,
   projectAccounts,
   projectBanks,
   projectBanksOverview,
@@ -21,8 +25,10 @@ import {
   projectOverview,
   projectUtilities,
   projectUtility,
+  type Chain,
   type CreateAccountInput,
   type CreateBillInput,
+  type CreateChainAddressInput,
   type CreateHoldingInput,
   type CreateTransactionInput,
   type LedgerSnapshot,
@@ -45,6 +51,7 @@ export class MemoryLedger {
       transactions: this.snapshot.transactions.map((row) => ({ ...row })),
       holdings: this.snapshot.holdings.map((row) => ({ ...row })),
       bills: this.snapshot.bills.map((row) => ({ ...row })),
+      chainAddresses: this.snapshot.chainAddresses.map((row) => ({ ...row })),
     }
   }
 
@@ -64,6 +71,7 @@ export class MemoryLedger {
     this.snapshot.accounts = this.snapshot.accounts.filter((row) => row.id !== id)
     this.snapshot.transactions = this.snapshot.transactions.filter((row) => row.accountId !== id)
     this.snapshot.holdings = this.snapshot.holdings.filter((row) => row.accountId !== id)
+    this.snapshot.chainAddresses = this.snapshot.chainAddresses.filter((row) => row.accountId !== id)
     this.snapshot.bills = this.snapshot.bills.map((row) =>
       row.paidFromId === id ? { ...row, paidFromId: null } : row,
     )
@@ -115,6 +123,42 @@ export class MemoryLedger {
 
   importBankStatement(parsed: ParsedBankStatement, confirm?: 'replace') {
     return commitBankStatement(this.snapshot, parsed, { confirm })
+  }
+
+  createChainAddress(input: CreateChainAddressInput) {
+    const account = this.snapshot.accounts.find((row) => row.id === input.accountId)
+    if (!account) throw notFound('Account')
+    if (account.kind !== 'crypto') {
+      const error = new Error('Chain addresses can only be added to a crypto account.')
+      error.name = 'ApiError'
+      throw error
+    }
+    return applyCreateChainAddress(this.snapshot, input)
+  }
+
+  deleteChainAddress(id: string) {
+    const exists = this.snapshot.chainAddresses.some((row) => row.id === id)
+    if (!exists) throw notFound('Watched address')
+    applyDeleteChainAddress(this.snapshot, id)
+  }
+
+  async syncChainAddress(id: string) {
+    const watched = this.snapshot.chainAddresses.find((row) => row.id === id)
+    if (!watched) throw notFound('Watched address')
+    const txs = await fetchAddressTransactions({
+      chain: watched.chain as Chain,
+      address: watched.address,
+      delayMs: 0,
+    })
+    const committed = commitChainTransactions(this.snapshot, watched.accountId, watched.id, txs)
+    return {
+      addressId: watched.id,
+      chain: watched.chain,
+      address: watched.address,
+      fetchedCount: committed.fetchedCount,
+      importedCount: committed.importedCount,
+      skippedCount: committed.skippedCount,
+    }
   }
 
   private requireAccount(id: string) {

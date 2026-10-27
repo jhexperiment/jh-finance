@@ -9,6 +9,9 @@
     "./fixtures": "./src/fixtures.ts"
   },
   "dependencies": {
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
+    "@scure/btc-signer": "^2.4.1",
     "decimal.js": "^10.5.0"
   },
   "devDependencies": {

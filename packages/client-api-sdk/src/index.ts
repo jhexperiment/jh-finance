@@ -5,8 +5,10 @@ import {
   type BillsOverview,
   type CardAccount,
   type CardsOverview,
+  type ChainAddressSyncResult,
   type CreateAccountInput,
   type CreateBillInput,
+  type CreateChainAddressInput,
   type CreateHoldingInput,
   type CreateTransactionInput,
   type InsurancePolicy,
@@ -14,6 +16,7 @@ import {
   type InvestmentsOverview,
   type LedgerAccount,
   type LedgerBill,
+  type LedgerChainAddress,
   type LedgerHolding,
   type LedgerTransaction,
   type OverviewSnapshot,
@@ -67,6 +70,13 @@ export interface ClientApi {
     file: File
     confirm?: 'replace'
   }) => Promise<BankStatementImportResult>
+  listChainAddresses: (accountId: string) => Promise<LedgerChainAddress[]>
+  createChainAddress: (
+    accountId: string,
+    input: Omit<CreateChainAddressInput, 'accountId'>,
+  ) => Promise<LedgerChainAddress>
+  deleteChainAddress: (accountId: string, addressId: string) => Promise<void>
+  syncChainAddress: (accountId: string, addressId: string) => Promise<ChainAddressSyncResult>
 }
 
 class ApiError extends Error {
@@ -151,6 +161,13 @@ function memoryClient(): ClientApi {
       }
       return committed.result
     },
+    listChainAddresses: async (accountId) =>
+      memory.snapshot.chainAddresses.filter((row) => row.accountId === accountId),
+    createChainAddress: async (accountId, input) => memory.createChainAddress({ accountId, ...input }),
+    deleteChainAddress: async (_accountId, addressId) => {
+      memory.deleteChainAddress(addressId)
+    },
+    syncChainAddress: async (_accountId, addressId) => memory.syncChainAddress(addressId),
   }
 }
 
@@ -169,12 +186,19 @@ async function sendJson<T>(baseUrl: string, method: string, path: string, body?:
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new ApiError(`${path} failed`, response.status)
+    throw new ApiError(await errorMessage(response, path), response.status)
   }
   if (response.status === 204) {
     return undefined as T
   }
   return (await response.json()) as T
+}
+
+async function errorMessage(response: Response, path: string): Promise<string> {
+  const payload = (await response.json().catch(() => null)) as { message?: string | string[] } | null
+  if (typeof payload?.message === 'string' && payload.message) return payload.message
+  if (Array.isArray(payload?.message) && payload.message[0]) return payload.message[0]
+  return `${path} failed`
 }
 
 function liveClient(baseUrl: string): ClientApi {
@@ -209,6 +233,13 @@ function liveClient(baseUrl: string): ClientApi {
     deleteBill: (id) => sendJson(root, 'DELETE', `/bills/${id}`),
     importCardStatement: (input) => postCardStatement(root, input),
     importBankStatement: (input) => postBankStatement(root, input),
+    listChainAddresses: (accountId) => getJson(root, `/accounts/${accountId}/chain-addresses`),
+    createChainAddress: (accountId, input) =>
+      sendJson(root, 'POST', `/accounts/${accountId}/chain-addresses`, input),
+    deleteChainAddress: (accountId, addressId) =>
+      sendJson(root, 'DELETE', `/accounts/${accountId}/chain-addresses/${addressId}`),
+    syncChainAddress: (accountId, addressId) =>
+      sendJson(root, 'POST', `/accounts/${accountId}/chain-addresses/${addressId}/sync`),
   }
 }
 

@@ -5,8 +5,12 @@ const config: Config = {
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.m?js$': ['ts-jest', { tsconfig: { allowJs: true, esModuleInterop: true } }],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(\\.pnpm/(?:@scure\\+|@noble\\+|micro-packed@)|(?:@scure|@noble|micro-packed)/))',
+  ],
   collectCoverageFrom: ['**/*.ts'],
   coverageDirectory: './coverage',
   testEnvironment: 'node',

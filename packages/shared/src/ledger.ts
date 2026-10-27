@@ -1,3 +1,4 @@
+import { assertWatchableKey } from './chain/xpub-key'
 import { formatUsd, money, sum } from './money'
 import type {
   AccountGroup,
@@ -5,6 +6,7 @@ import type {
   AccountSummary,
   ActivityRow,
   AllocationSlice,
+  WatchedChainAddress,
   BankAccount,
   BanksOverview,
   BillsOverview,
@@ -40,9 +42,21 @@ export interface LedgerTransaction {
   postedAt: string
   description: string
   amount: string
+  asset?: string | null
+  externalId?: string | null
   category?: string | null
   status?: string | null
   createdAt: string
+}
+
+export interface LedgerChainAddress {
+  id: string
+  accountId: string
+  chain: string
+  address: string
+  lastSyncAt?: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface LedgerHolding {
@@ -74,6 +88,7 @@ export interface LedgerSnapshot {
   transactions: LedgerTransaction[]
   holdings: LedgerHolding[]
   bills: LedgerBill[]
+  chainAddresses: LedgerChainAddress[]
 }
 
 export interface CreateAccountInput {
@@ -96,8 +111,16 @@ export interface CreateTransactionInput {
   postedAt?: string
   description: string
   amount: string
+  asset?: string
+  externalId?: string
   category?: string
   status?: string
+}
+
+export interface CreateChainAddressInput {
+  accountId: string
+  chain: string
+  address: string
 }
 
 export interface UpdateTransactionInput {
@@ -176,7 +199,7 @@ export const PRISMA_KIND_TO_BILL: Record<string, BillKind> = {
 const SLICE_COLORS = ['#0E6B63', '#2B5BA8', '#B7791F', '#7A4E9B', '#D4A24C', '#B9BEC8']
 
 export function emptyLedger(): LedgerSnapshot {
-  return { accounts: [], transactions: [], holdings: [], bills: [] }
+  return { accounts: [], transactions: [], holdings: [], bills: [], chainAddresses: [] }
 }
 
 export function newLedgerId(): string {
@@ -195,12 +218,16 @@ export function parseMoneyInput(value: string | undefined, digits = 2): string {
 }
 
 export function parseDateInput(value: string | undefined): Date | null {
-  const day = value?.trim().slice(0, 10)
-  if (!day) return null
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+  const raw = value?.trim()
+  if (!raw) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return new Date(`${raw}T12:00:00.000Z`)
+  }
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
     throw new Error('Enter a valid date')
   }
-  return new Date(`${day}T12:00:00.000Z`)
+  return date
 }
 
 export function isoFromDate(value: Date | string | null | undefined): string | null {
@@ -264,9 +291,18 @@ function toActivityRow(row: LedgerTransaction, accountName?: string): ActivityRo
     account: accountName,
     category: row.category ?? undefined,
     status: row.status ?? 'Posted',
-    amount: formatUsd(row.amount),
+    amount: formatActivityAmount(row),
     amountTone: amountTone(row.amount),
   }
+}
+
+function formatActivityAmount(row: LedgerTransaction): string {
+  if (!row.asset) return formatUsd(row.amount)
+  const amount = money(row.amount)
+  const body = amount.abs().toString()
+  if (amount.isNegative()) return `-${body} ${row.asset}`
+  if (amount.isPositive()) return `+${body} ${row.asset}`
+  return `0 ${row.asset}`
 }
 
 function accountName(snapshot: LedgerSnapshot, id: string | null | undefined): string {
@@ -280,6 +316,17 @@ function txnsFor(snapshot: LedgerSnapshot, accountId: string): LedgerTransaction
 
 function holdingsFor(snapshot: LedgerSnapshot, accountId: string): LedgerHolding[] {
   return snapshot.holdings.filter((row) => row.accountId === accountId)
+}
+
+function chainAddressesFor(snapshot: LedgerSnapshot, accountId: string): WatchedChainAddress[] {
+  return snapshot.chainAddresses
+    .filter((row) => row.accountId === accountId)
+    .map((row) => ({
+      id: row.id,
+      chain: row.chain,
+      address: row.address,
+      lastSyncAt: row.lastSyncAt,
+    }))
 }
 
 function currentMonthKey(): string {
@@ -446,6 +493,7 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
   const gain = holdingRows.length > 0 ? value.minus(cost) : money(0)
   const holdings = holdingRows.map((row) => projectHolding(row, account, value.toNumber()))
   const activity = txnsFor(snapshot, account.id).map((row) => toActivityRow(row, account.name))
+  const chainAddresses = chainAddressesFor(snapshot, account.id)
   const mix = slicesFrom(holdingRows.map((row) => ({ label: row.name, value: money(row.value).toNumber() })))
   return {
     ...toAccountSummary(account),
@@ -477,10 +525,19 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
       { label: 'Account type', value: account.subtype },
       { label: 'Kind', value: account.kind === 'crypto' ? 'Crypto' : 'Investment' },
       { label: 'Currency', value: account.currency },
+      ...(chainAddresses.length
+        ? [
+            {
+              label: 'Watched addresses',
+              value: countLabel(chainAddresses.length, 'address', 'addresses'),
+            },
+          ]
+        : []),
     ],
     mix: mix.length > 0 ? mix : undefined,
     holdings,
     activity,
+    chainAddresses,
     primaryAction: 'Add holding',
     secondaryAction: 'Edit account',
   }
@@ -815,17 +872,57 @@ export function applyUpdateAccount(account: LedgerAccount, input: UpdateAccountI
 
 export function applyCreateTransaction(snapshot: LedgerSnapshot, input: CreateTransactionInput): LedgerTransaction {
   const posted = parseDateInput(input.postedAt) ?? new Date()
+  const asset = input.asset?.trim() || null
   const row: LedgerTransaction = {
     id: newLedgerId(),
     accountId: input.accountId,
     postedAt: posted.toISOString(),
     description: input.description.trim(),
-    amount: parseMoneyInput(input.amount),
+    amount: parseMoneyInput(input.amount, asset ? 8 : 2),
+    asset,
+    externalId: input.externalId?.trim() || null,
     category: input.category?.trim() || null,
     status: input.status?.trim() || 'Posted',
     createdAt: nowIso(),
   }
   snapshot.transactions.push(row)
+  return row
+}
+
+export function applyCreateChainAddress(
+  snapshot: LedgerSnapshot,
+  input: CreateChainAddressInput,
+): LedgerChainAddress {
+  const chain = input.chain.trim().toLowerCase()
+  const address = input.address.trim()
+  assertWatchableKey(address, chain)
+  const duplicate = snapshot.chainAddresses.some(
+    (row) => row.accountId === input.accountId && row.chain === chain && row.address === address,
+  )
+  if (duplicate) {
+    throw new Error('That address is already watched on this account.')
+  }
+  const now = nowIso()
+  const row: LedgerChainAddress = {
+    id: newLedgerId(),
+    accountId: input.accountId,
+    chain,
+    address,
+    lastSyncAt: null,
+    createdAt: now,
+    updatedAt: now,
+  }
+  snapshot.chainAddresses.push(row)
+  return row
+}
+
+export function applyDeleteChainAddress(snapshot: LedgerSnapshot, id: string): void {
+  snapshot.chainAddresses = snapshot.chainAddresses.filter((row) => row.id !== id)
+}
+
+export function applyTouchChainAddress(row: LedgerChainAddress, lastSyncAt = nowIso()): LedgerChainAddress {
+  row.lastSyncAt = lastSyncAt
+  row.updatedAt = lastSyncAt
   return row
 }
 

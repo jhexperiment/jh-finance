@@ -27,7 +27,8 @@
     "prisma:migrate:local": "pnpm --filter api prisma:migrate:local",
     "prisma:reset:local": "pnpm --filter api prisma:reset:local",
     "client-api-sdk:generate": "pnpm --filter client-api-sdk generate",
-    "pdf:cli": "packages/scripts/node_modules/.bin/tsx packages/scripts/pdf/cli/pdf.ts"
+    "pdf:cli": "pnpm --filter scripts pdf:cli",
+    "chain:txs": "pnpm --filter scripts chain:txs"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

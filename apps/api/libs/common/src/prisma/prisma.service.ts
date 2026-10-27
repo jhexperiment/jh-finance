@@ -23,9 +23,21 @@ export type TransactionRecord = {
   postedAt: Date;
   description: string;
   amount: DecimalValue;
+  asset: string | null;
+  externalId: string | null;
   category: string | null;
   status: string | null;
   createdAt: Date;
+};
+
+export type ChainAddressRecord = {
+  id: string;
+  accountId: string;
+  chain: string;
+  address: string;
+  lastSyncAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type HoldingRecord = {
@@ -83,6 +95,7 @@ export type DomainPrisma = {
   holding: Delegate<HoldingRecord>;
   bill: Delegate<BillRecord>;
   document: Delegate<DocumentRecord>;
+  chainAddress: Delegate<ChainAddressRecord>;
 };
 
 @Injectable()

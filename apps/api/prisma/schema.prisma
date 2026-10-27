@@ -31,10 +31,11 @@ model Account {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  transactions Transaction[]
-  holdings     Holding[]
-  bills        Bill[]        @relation("PaidFrom")
-  documents    Document[]
+  transactions    Transaction[]
+  holdings        Holding[]
+  bills           Bill[]          @relation("PaidFrom")
+  documents       Document[]
+  chainAddresses  ChainAddress[]
 }
 
 model Transaction {
@@ -43,12 +44,29 @@ model Transaction {
   account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   postedAt    DateTime
   description String
-  amount      Decimal  @db.Decimal(18, 2)
+  amount      Decimal  @db.Decimal(28, 8)
+  asset       String?
+  externalId  String?
   category    String?
   status      String?
   createdAt   DateTime @default(now())
 
+  @@unique([accountId, externalId])
   @@index([accountId, postedAt])
+}
+
+model ChainAddress {
+  id         String    @id
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  chain      String
+  address    String
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([accountId, chain, address])
+  @@index([accountId])
 }
 
 model Holding {

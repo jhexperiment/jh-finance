@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type {
   CreateAccountInput,
   CreateBillInput,
+  CreateChainAddressInput,
   CreateHoldingInput,
   CreateTransactionInput,
   UpdateAccountInput,
@@ -13,6 +14,7 @@ import type {
 
 const accountKind = z.enum(['credit-card', 'bank', 'investment', 'crypto']);
 const billKind = z.enum(['utility', 'insurance']);
+const chainId = z.enum(['btc', 'ltc', 'eth', 'bnb', 'xrp', 'xlm']);
 
 const createAccountSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -27,6 +29,11 @@ const updateAccountSchema = z.object({
   subtype: z.string().trim().max(80).optional(),
   mask: z.string().trim().max(12).nullable().optional(),
   balance: z.string().optional(),
+});
+
+const createChainAddressSchema = z.object({
+  chain: chainId,
+  address: z.string().trim().min(8).max(160),
 });
 
 const createTransactionSchema = z.object({
@@ -79,6 +86,14 @@ const updateBillSchema = z.object({
   paidFromId: z.string().nullable().optional(),
   status: z.string().trim().max(40).optional(),
 });
+
+export function parseCreateChainAddress(
+  accountId: string,
+  body: unknown,
+): CreateChainAddressInput {
+  const data = parse(createChainAddressSchema, body);
+  return { accountId, ...data };
+}
 
 export function parseCreateAccount(body: unknown): CreateAccountInput {
   return parse(createAccountSchema, body);
