@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../prisma/prisma.module';
-import { DragonflyModule } from '../dragonfly/dragonfly.module';
+import { LedgerModule } from '../ledger/ledger.module';
 import { AccountService } from './account.service';
 
 @Module({
-  imports: [PrismaModule, DragonflyModule],
+  imports: [LedgerModule],
   providers: [AccountService],
   exports: [AccountService],
 })

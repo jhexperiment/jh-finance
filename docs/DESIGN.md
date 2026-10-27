@@ -111,7 +111,7 @@ Header-only. Order in code (canonical IA; README prose lists Investments before 
 | --- | --- | --- | --- |
 | Overview | `/` | ✅ | `end: true` so `/cards` does not stay active |
 | Cards | `/cards` | ✅ | |
-| Statements | `/statements` | ✅ | Nav label is **Statements**, not Banks |
+| Banks | `/statements` | ✅ | Nav label is **Banks**; route stays `/statements` |
 | Bills | `/bills` | ✅ | |
 | Investments | `/investments` | ✅ | Crypto is not a nav item; crumb on crypto detail says **Crypto** |
 

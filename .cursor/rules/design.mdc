@@ -1,0 +1,19 @@
+---
+description: JH Finance UI tokens and component patterns
+globs: apps/web/src/{index.css,layouts/**,components/**,pages/**}
+alwaysApply: false
+---
+
+# Design
+
+Match [docs/DESIGN.md](docs/DESIGN.md). Do not introduce a second visual language for ingest or forms.
+
+**Tokens** (`src/index.css` `@theme`): canvas `#faf9f5`, ink `#1a1d21`, muted `#5b6270`, line `#e3e1d9`, accent `#0e6b63`, gain / warn / loss (+ `*-bg`). Type: Inter. Tabular nums: class `num`.
+
+**Chrome:** no sidebar, no bottom nav, no modal/sheet system, no toasts, no dark mode, no icon pack, no shadcn/Radix. New screens: `PageHeader` + `PrimaryButton` / `GhostButton` + `Card` + `DataTable`. Controls `rounded-[10px]`; cards `rounded-2xl`.
+
+**Tone:** `gain` / `warn` / `loss` on amounts, pills, attention. Status copy plus color (not color-only).
+
+**Ingest UX:** add-account and upload belong on the section/detail, not Overview, not a global inbox. Prefer a full page or `Card` on the account detail over inventing a dialog library. Pay / move / trade buttons stay non-executing.
+
+**Layout:** ~1200px desktop. Do not add responsive breakpoint grids unless the design spec changes.

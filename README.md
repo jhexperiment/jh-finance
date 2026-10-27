@@ -30,7 +30,6 @@ cp .env.example .env.local
 docker compose up -d postgres dragonfly
 pnpm prisma:generate
 pnpm prisma:migrate:local
-pnpm prisma:seed:local
 pnpm dev:api:client:local
 pnpm dev:api:processor:local
 ```

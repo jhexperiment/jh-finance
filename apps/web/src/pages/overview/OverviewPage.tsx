@@ -5,6 +5,8 @@ import { api } from '@/api/client'
 import { AllocationBar, AllocationLegend } from '@/components/ui/Allocation'
 import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PrimaryButton } from '@/components/ui/PageHeader'
 
 const attentionBg: Record<Tone, string> = {
   warn: 'bg-warn-bg',
@@ -26,21 +28,39 @@ export function OverviewPage() {
   const { data } = useQuery({ queryKey: ['overview'], queryFn: api.getOverview })
   if (!data) return null
 
-  const max = Math.max(...data.series.map((point) => point.value))
-  const min = Math.min(...data.series.map((point) => point.value))
-  const points = data.series
-    .map((point, index) => {
-      const x = (index / (data.series.length - 1)) * 640
-      const y = 160 - ((point.value - min) / (max - min || 1)) * 120
-      return `${x},${y}`
-    })
-    .join(' ')
+  const emptyWorkspace = data.series.length === 0 && data.activity.length === 0 && data.attention.length === 0
+  const hasChart = data.series.length >= 2
+  const max = hasChart ? Math.max(...data.series.map((point) => point.value)) : 0
+  const min = hasChart ? Math.min(...data.series.map((point) => point.value)) : 0
+  const points = hasChart
+    ? data.series
+        .map((point, index) => {
+          const x = (index / (data.series.length - 1)) * 640
+          const y = 160 - ((point.value - min) / (max - min || 1)) * 120
+          return `${x},${y}`
+        })
+        .join(' ')
+    : ''
   const last = data.series[data.series.length - 1]
   const lastX = 640
-  const lastY = 160 - ((last.value - min) / (max - min || 1)) * 120
+  const lastY = hasChart && last ? 160 - ((last.value - min) / (max - min || 1)) * 120 : 160
 
   return (
     <>
+      {emptyWorkspace ? (
+        <EmptyState
+          title="No accounts yet"
+          body="Add a bank, card, investment, or bill by hand, or upload a Chase statement from Cards."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <PrimaryButton to="/cards/new">Add card</PrimaryButton>
+              <PrimaryButton to="/statements/new">Add bank account</PrimaryButton>
+              <PrimaryButton to="/investments/new">Add investment</PrimaryButton>
+              <PrimaryButton to="/bills/new">Add bill</PrimaryButton>
+            </div>
+          }
+        />
+      ) : null}
       <section className="mt-7 grid grid-cols-[1.45fr_1fr] gap-6">
         <Card padding="lg">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -49,9 +69,9 @@ export function OverviewPage() {
               <p className="num mt-1.5 mb-0 text-[44px] font-bold tracking-[-0.02em]">
                 {data.netWorth}
               </p>
-              <p className="mt-1.5 mb-0 text-sm font-semibold text-gain">
-                {data.netWorthChange}
-              </p>
+              {data.netWorthChange ? (
+                <p className="mt-1.5 mb-0 text-sm font-semibold text-muted">{data.netWorthChange}</p>
+              ) : null}
             </div>
             <div
               role="group"
@@ -73,43 +93,47 @@ export function OverviewPage() {
               ))}
             </div>
           </div>
-          <svg
-            viewBox="0 0 640 200"
-            width="100%"
-            height="200"
-            role="img"
-            aria-label="Net worth over the last 12 months"
-            className="mt-5 block"
-          >
-            <g stroke="#E3E1D9" strokeWidth="1">
-              <line x1="0" y1="40" x2="640" y2="40" />
-              <line x1="0" y1="100" x2="640" y2="100" />
-              <line x1="0" y1="160" x2="640" y2="160" />
-            </g>
-            <polyline
-              points={`${points} 640,200 0,200`}
-              fill="#0E6B63"
-              fillOpacity="0.08"
-              stroke="none"
-            />
-            <polyline
-              points={points}
-              fill="none"
-              stroke="#0E6B63"
-              strokeWidth="3"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <circle cx={lastX} cy={lastY} r="5" fill="#0E6B63" />
-          </svg>
+          {hasChart ? (
+            <svg
+              viewBox="0 0 640 200"
+              width="100%"
+              height="200"
+              role="img"
+              aria-label="Net worth over time"
+              className="mt-5 block"
+            >
+              <g stroke="#E3E1D9" strokeWidth="1">
+                <line x1="0" y1="40" x2="640" y2="40" />
+                <line x1="0" y1="100" x2="640" y2="100" />
+                <line x1="0" y1="160" x2="640" y2="160" />
+              </g>
+              <polyline
+                points={`${points} 640,200 0,200`}
+                fill="#0E6B63"
+                fillOpacity="0.08"
+                stroke="none"
+              />
+              <polyline
+                points={points}
+                fill="none"
+                stroke="#0E6B63"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <circle cx={lastX} cy={lastY} r="5" fill="#0E6B63" />
+            </svg>
+          ) : (
+            <p className="mt-8 mb-2 text-sm text-muted">No history yet. Totals use the balances you record.</p>
+          )}
           <div className="mt-2 flex justify-between text-xs text-muted">
-            {data.seriesLabels.map((label) => (
-              <span key={label}>{label}</span>
+            {data.seriesLabels.map((label, index) => (
+              <span key={`${label}-${index}`}>{label}</span>
             ))}
           </div>
         </Card>
         <div className="grid grid-cols-2 gap-4">
-          <Mini label="Cash" value={data.cash} hint="4 bank accounts" />
+          <Mini label="Cash" value={data.cash} hint={data.cashHint} />
           <Mini
             label="Card balances"
             value={data.cardBalances}
@@ -121,40 +145,45 @@ export function OverviewPage() {
             value={data.retirement}
             hint={data.retirementHint}
           />
-          <Mini
-            label="Crypto"
-            value={data.crypto}
-            hint={data.cryptoHint}
-            hintClass="text-loss"
-          />
+          <Mini label="Crypto" value={data.crypto} hint={data.cryptoHint} />
         </div>
       </section>
 
       <section className="mt-6 grid grid-cols-2 gap-6">
         <Card>
           <h2 className="m-0 text-base font-semibold">Allocation</h2>
-          <AllocationBar slices={data.allocation} />
-          <AllocationLegend slices={data.allocation} />
+          {data.allocation.length > 0 ? (
+            <>
+              <AllocationBar slices={data.allocation} />
+              <AllocationLegend slices={data.allocation} />
+            </>
+          ) : (
+            <p className="mt-4 mb-0 text-sm text-muted">Allocation appears after you add asset accounts.</p>
+          )}
         </Card>
         <Card>
           <h2 className="m-0 text-base font-semibold">Needs attention</h2>
-          <ul className="mt-4 mb-0 grid list-none gap-3 p-0">
-            {data.attention.map((item) => (
-              <li
-                key={item.id}
-                className={`flex gap-3 rounded-[10px] p-3 ${attentionBg[item.tone]}`}
-              >
-                <span
-                  aria-hidden
-                  className={`w-2 rounded ${attentionBar[item.tone]}`}
-                />
-                <div>
-                  <p className="m-0 text-sm font-semibold">{item.title}</p>
-                  <p className="mt-0.5 mb-0 text-[13px] text-muted">{item.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {data.attention.length > 0 ? (
+            <ul className="mt-4 mb-0 grid list-none gap-3 p-0">
+              {data.attention.map((item) => (
+                <li
+                  key={item.id}
+                  className={`flex gap-3 rounded-[10px] p-3 ${attentionBg[item.tone]}`}
+                >
+                  <span
+                    aria-hidden
+                    className={`w-2 rounded ${attentionBar[item.tone]}`}
+                  />
+                  <div>
+                    <p className="m-0 text-sm font-semibold">{item.title}</p>
+                    <p className="mt-0.5 mb-0 text-[13px] text-muted">{item.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 mb-0 text-sm text-muted">Nothing needs attention.</p>
+          )}
         </Card>
       </section>
 
@@ -165,30 +194,34 @@ export function OverviewPage() {
             View all
           </Link>
         </div>
-        <DataTable
-          columns={[
-            { key: 'date', label: 'Date' },
-            { key: 'description', label: 'Description' },
-            { key: 'account', label: 'Account' },
-            { key: 'amount', label: 'Amount', align: 'right' },
-          ]}
-        >
-          {data.activity.map((row) => (
-            <Row key={row.id}>
-              <Cell muted className="num">
-                {row.date}
-              </Cell>
-              <Cell>{row.description}</Cell>
-              <Cell muted>{row.account}</Cell>
-              <Cell
-                align="right"
-                className={`num ${row.amountTone === 'gain' ? 'text-gain' : ''}`}
-              >
-                {row.amount}
-              </Cell>
-            </Row>
-          ))}
-        </DataTable>
+        {data.activity.length > 0 ? (
+          <DataTable
+            columns={[
+              { key: 'date', label: 'Date' },
+              { key: 'description', label: 'Description' },
+              { key: 'account', label: 'Account' },
+              { key: 'amount', label: 'Amount', align: 'right' },
+            ]}
+          >
+            {data.activity.map((row) => (
+              <Row key={row.id}>
+                <Cell muted className="num">
+                  {row.date}
+                </Cell>
+                <Cell>{row.description}</Cell>
+                <Cell muted>{row.account}</Cell>
+                <Cell
+                  align="right"
+                  className={`num ${row.amountTone === 'gain' ? 'text-gain' : ''}`}
+                >
+                  {row.amount}
+                </Cell>
+              </Row>
+            ))}
+          </DataTable>
+        ) : (
+          <p className="mt-4 mb-0 text-sm text-muted">No activity recorded yet.</p>
+        )}
       </Card>
     </>
   )

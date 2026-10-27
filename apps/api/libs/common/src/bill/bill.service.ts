@@ -1,25 +1,29 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { billsOverview, findUtility, insurance, utilities } from 'shared';
+import { projectBillsOverview, projectInsurance, projectUtilities, projectUtility } from 'shared';
+import { LedgerService } from '../ledger/ledger.service';
 
 @Injectable()
 export class BillService {
-  overview() {
-    return billsOverview;
+  constructor(private readonly ledger: LedgerService) {}
+
+  async overview() {
+    return projectBillsOverview(await this.ledger.snapshot());
   }
 
-  listUtilities() {
-    return utilities;
+  async listUtilities() {
+    return projectUtilities(await this.ledger.snapshot());
   }
 
-  getUtility(id: string) {
-    const utility = findUtility(id);
-    if (!utility) {
+  async getUtility(id: string) {
+    const snapshot = await this.ledger.snapshot();
+    const bill = snapshot.bills.find((item) => item.id === id && item.kind === 'utility');
+    if (!bill) {
       throw new NotFoundException(`Utility ${id} not found`);
     }
-    return utility;
+    return projectUtility(bill, snapshot);
   }
 
-  listInsurance() {
-    return insurance;
+  async listInsurance() {
+    return projectInsurance(await this.ledger.snapshot());
   }
 }

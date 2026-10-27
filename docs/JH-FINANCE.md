@@ -129,7 +129,7 @@ No other personas appear in screens or schema (no advisor, child, CPA, or employ
 
 **Switching context:** none. No workspace switcher. Card/account filters are section-local and mostly visual.
 
-**Onboarding (intended):** empty workspace → upload on a domain section → parse → Overview shows real rows. **Onboarding (today):** seeded demo household / in-memory fixtures. Product first-run must **not** be the demo AM household.
+**Onboarding (intended):** empty workspace → upload on a domain section → parse → Overview shows real rows. **Onboarding (today):** in-memory fixtures. Product first-run must **not** be the demo AM household.
 
 **Current vs intended:** named in layout and API copy; **not a table**. Whether a future `Workspace` / `Household` with members is required is an open question. Do not add tenancy in feature work until that is decided.
 
@@ -203,7 +203,7 @@ Today:
   Web  -- VITE_API_URL unset/empty -->  fixtureClient  -->  packages/shared fixtures
        -- VITE_API_URL set        -->  GET {baseUrl}/overview|cards|banks|investments|bills
                                        Nest services --> same fixtures
-                                       Prisma Account/Bill seeded, unread
+                                       Prisma Account/Bill unread unless written by the app
                                        (SDK does not prepend /v1; baseUrl must include the prefix)
   processor  -->  BullMQ price-sync  -->  log account count; no enqueue; no parse queue
 ```
@@ -446,7 +446,7 @@ Treat any paywall, account cap, or “Pro” copy as out of spec until an owner 
 | API | Nest Fastify `client` + `processor` | Client: upload + reads. Processor: **parse** (required) and optional price refresh. |
 | Contract | `packages/shared` types + fixture objects | UI and API share one snapshot shape (formatted strings). Switching to numeric API responses is a product-visible change. |
 | SDK | Hand-written `createClient({ baseUrl })` | Unset/`""` `VITE_API_URL` → fixtures (`if (baseUrl)`). Live paths are `/overview`, not `/v1/overview`. Generate script is a console stub (`/v1/docs-json` is not a real route; Swagger is `/docs`). |
-| DB | Postgres via Prisma | **System of record for parsed data (confirmed).** Today: connect-only `PrismaService`; seed unread. Missing: `Document` / import job. |
+| DB | Postgres via Prisma | **System of record for parsed data (confirmed).** Today: connect-only `PrismaService`. Missing: `Document` / import job. |
 | Cache / jobs | Dragonfly + BullMQ | The process that should run **parse**. Today: unused `price-sync` queue, no enqueue. |
 | Money | `decimal.js` + Prisma Decimal | Correct arithmetic when totals are computed; UI does not compute yet. |
 | Auth | None | Anyone who can hit web or `/v1` sees the household. |
@@ -456,13 +456,13 @@ Treat any paywall, account cap, or “Pro” copy as out of spec until an owner 
 | Collection | In Prisma | Seeded | Served to UI | Notes |
 | --- | --- | --- | --- | --- |
 | Document / ImportJob | ❌ | — | — | **Required** for ingest provenance |
-| `Account` | ✅ | ✅ (from fixtures) | Via fixtures, not query | Should be created/updated by parse |
+| `Account` | ✅ | ❌ | Via fixtures, not query | Should be created/updated by parse |
 | `Transaction` | ✅ | ❌ | Fixtures | **Required** parse output |
 | `Holding` | ✅ | ❌ | Fixtures | **Required** parse output for investments/crypto |
-| `Bill` | ✅ | ✅ (partial; no `paidFromId`/`dueAt`) | Fixtures | **Required** parse output for utilities/insurance |
+| `Bill` | ✅ | ❌ | Fixtures | **Required** parse output for utilities/insurance |
 | Attention, allocation, series, rewards, APR, RSU vest, usage, health OOP | ❌ | n/a | Fixtures / page hardcodes | Derive from parsed rows where possible |
 
-`PrismaService` logs that missing `DATABASE_URL` means “domain services will use fixtures,” but services import `shared` even when `isReady` is true. Shared `AccountKind` is kebab-case; Prisma is `CREDIT_CARD` / `BANK` / `INVESTMENT` / `CRYPTO` — seed maps between them.
+`PrismaService` logs that missing `DATABASE_URL` means “domain services will use fixtures,” but services import `shared` even when `isReady` is true. Shared `AccountKind` is kebab-case; Prisma is `CREDIT_CARD` / `BANK` / `INVESTMENT` / `CRYPTO` — map at the boundary.
 
 ### 10. User Journeys
 
@@ -507,7 +507,7 @@ Does not exist. No checkout, no plan, no limit.
 - Crypto under Investments — intentional
 - Shared types + fixtures as the contract
 - GET API mirroring that contract; health endpoints; Swagger 0.1.0
-- Prisma schema + initial migration + seed of `Account` and `Bill`
+- Prisma schema + initial migration of `Account` and `Bill`
 - `price-sync` queue name and placeholder worker (no producer)
 - Overview test asserts fixture net worth; AccountService test asserts four cards from fixtures
 
@@ -582,7 +582,7 @@ Decisions 1–16 are from code/README/Swagger. **17–20 are owner direction (lo
 | 28 | Sign-in? | **None for now.** Local trusted app. |
 | 29 | Is the 22-page UI enough analysis for v1? | **Yes** — wire it to the database. New analysis views are not v1. |
 | 30 | Partner / sharing? | **No.** Joint accounts are data, not a second login. |
-| 31 | First account creation? | **Add account shell** (name/type), then upload onto it. The file does not create the account. |
+| 31 | First account creation? | **Either.** Add an account by hand, or upload a statement. A Chase card PDF creates the card when the last four are new. |
 | 32 | Parser? | **Per-institution templates.** Sample files later; use synthetic fixtures until then. |
 | 33 | Overlapping re-import? | **Ask each time.** |
 

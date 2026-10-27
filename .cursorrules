@@ -1,0 +1,52 @@
+# JH Finance — agent rules
+
+Personal household finance workspace for JH. Product loop: **import PDF/CSV → parse with per-institution templates → persist in Postgres → analyze in the web UI.** Local trusted app. Not a bank, broker, bill-pay rail, or live aggregator.
+
+## Before changing code
+
+Read the specs that apply. `app-structure.md` is repo layout only — ignore its Auth0 / dashboard / other-product leftovers.
+
+| Concern | Doc |
+| --- | --- |
+| Product intent and decisions | `docs/JH-FINANCE.md` |
+| Web SPA | `docs/WEB.md` |
+| UI / UX | `docs/DESIGN.md` |
+| Nest HTTP (`client`) | `docs/API-CLIENT.md` |
+| Nest workers (`processor`) | `docs/API-PROCESSOR.md` |
+| Repo layout | `app-structure.md` |
+
+Docs can lag the tree (ledger writes, Chase card ingest, `Document` already exist). Treat docs as intent; verify against the files you will edit. If product direction is unclear, ask. Do not write `docs/MOBILE.md`.
+
+## Product constraints
+
+- One implicit workspace. No auth, `User` table, tenancy, or partner login.
+- Ingest is **PDF/CSV upload onto an account**, plus **manual row entry anytime**. Not Plaid-class live links.
+- Do not execute pay / move / trade. Advise; do not move money.
+- Postgres via Prisma is the system of record. `packages/shared` fixtures are demo/dev, not product first-run.
+- Money math uses `decimal.js` (`packages/shared` `money.ts`). Never IEEE floats for currency.
+- Keep original uploaded files. Auto-save high-confidence parses; review low; **ask** on overlapping re-import.
+- Do not expose `/v1` beyond localhost without revisiting auth.
+
+## Repo
+
+Node `v24.4.0` (`.nvmrc`), pnpm `10.28.2`, Turbo. Cross-package deps: `"workspace:*"`.
+
+| Path | Role |
+| --- | --- |
+| `apps/web` | Vite 7 + React 19 SPA (`@jh-finance/web`) |
+| `apps/api` | Nest 11 Fastify: `client` (`:3000`, prefix `v1`) + `processor` (`:3001`, health + workers) |
+| `packages/shared` | Types, fixtures, money, parsers |
+| `packages/client-api-sdk` | Hand-written `createClient`; fixtures when `baseUrl` is empty |
+| `packages/scripts` | PDF CLI (`pnpm pdf:cli`); not a product surface |
+| `apps/dragonfly` | Cache env helper |
+
+Web Prettier: root `prettier.config.js` (`semi: false`). API: `apps/api/.prettierrc` (semicolons). Do not mix.
+
+## How to change code
+
+- Read the function and its callers. Keep the diff scoped to that path.
+- Match existing style. No drive-by formatting or unrelated refactors.
+- Prefer additive paths over deleting still-used logic.
+- Shared contract: `packages/shared` types → Nest controllers / `libs/common` → `client-api-sdk` → `apps/web`. Update all layers that share a shape.
+- Domain REST lives on the **client**. Processor is workers + `GET /health`. Parse jobs belong on the processor; do not hang PDF parse on `price-sync`.
+- After behavior changes, run the relevant tests yourself (`pnpm test:web`, `pnpm test:api`). Do not leave breakage for the user.

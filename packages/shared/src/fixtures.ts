@@ -51,6 +51,7 @@ export const overview: OverviewSnapshot = {
   ],
   seriesLabels: ['Nov 2025', 'Apr 2026', 'Oct 2026'],
   cash: '$42,206.18',
+  cashHint: '4 bank accounts',
   cardBalances: '$5,114.37',
   cardHint: 'Due Nov 6 to 12 · 4 cards',
   retirement: '$187,904.60',

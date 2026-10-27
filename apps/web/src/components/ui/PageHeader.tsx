@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 export function PageHeader({
@@ -16,7 +16,7 @@ export function PageHeader({
     <div className={crumb ? 'mt-6' : 'mt-7'}>
       {crumb ? (
         <p className="mb-0 text-[13px] text-muted">
-          <Link to={crumb.to} className="font-semibold text-accent">
+          <Link to={crumb.to} className="font-semibold text-accent no-underline">
             {crumb.label}
           </Link>
           {' / '}
@@ -34,23 +34,51 @@ export function PageHeader({
   )
 }
 
-export function GhostButton({ children }: { children: string }) {
+const ghostClass =
+  'inline-block rounded-[10px] border border-line bg-white px-3.5 py-2 font-sans text-sm text-ink no-underline'
+const primaryClass =
+  'inline-block rounded-[10px] border-0 bg-accent px-3.5 py-2 font-sans text-sm font-medium text-white no-underline disabled:opacity-60'
+const dangerClass =
+  'inline-block rounded-[10px] border border-line bg-white px-3.5 py-2 font-sans text-sm text-loss no-underline'
+
+type ActionProps = {
+  children: ReactNode
+  to?: string
+} & ButtonHTMLAttributes<HTMLButtonElement>
+
+export function GhostButton({ children, to, type = 'button', ...props }: ActionProps) {
+  if (to) {
+    return (
+      <Link to={to} className={ghostClass}>
+        {children}
+      </Link>
+    )
+  }
   return (
-    <button
-      type="button"
-      className="rounded-[10px] border border-line bg-white px-3.5 py-2 font-sans text-sm"
-    >
+    <button type={type} className={ghostClass} {...props}>
       {children}
     </button>
   )
 }
 
-export function PrimaryButton({ children }: { children: string }) {
+export function PrimaryButton({ children, to, type = 'button', ...props }: ActionProps) {
+  if (to) {
+    return (
+      <Link to={to} className={primaryClass}>
+        {children}
+      </Link>
+    )
+  }
   return (
-    <button
-      type="button"
-      className="rounded-[10px] border-0 bg-accent px-3.5 py-2 font-sans text-sm font-medium text-white"
-    >
+    <button type={type} className={primaryClass} {...props}>
+      {children}
+    </button>
+  )
+}
+
+export function DangerButton({ children, type = 'button', ...props }: ActionProps) {
+  return (
+    <button type={type} className={dangerClass} {...props}>
       {children}
     </button>
   )

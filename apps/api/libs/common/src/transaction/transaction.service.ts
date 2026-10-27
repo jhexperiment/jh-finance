@@ -1,17 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { banksOverview, cardsOverview, overview } from 'shared';
+import { projectBanksOverview, projectCardsOverview, projectOverview } from 'shared';
+import { LedgerService } from '../ledger/ledger.service';
 
 @Injectable()
 export class TransactionService {
-  listRecent() {
-    return overview.activity;
+  constructor(private readonly ledger: LedgerService) {}
+
+  async listRecent() {
+    return (await projectOverview(await this.ledger.snapshot())).activity;
   }
 
-  listCardTransactions() {
-    return cardsOverview.transactions;
+  async listCardTransactions() {
+    return (await projectCardsOverview(await this.ledger.snapshot())).transactions;
   }
 
-  listBankLines() {
-    return banksOverview.lines;
+  async listBankLines() {
+    return (await projectBanksOverview(await this.ledger.snapshot())).lines;
   }
 }

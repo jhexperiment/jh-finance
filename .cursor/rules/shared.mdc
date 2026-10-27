@@ -1,0 +1,21 @@
+---
+description: Shared types, money, fixtures, and parsers
+globs: packages/{shared,client-api-sdk,scripts}/**/*.{ts,mjs}
+alwaysApply: false
+---
+
+# Shared packages
+
+`packages/shared` is the contract: types, demo fixtures, `decimal.js` helpers, parse templates. Web and API import it as TypeScript source (no `build` script).
+
+- Money: `import { money, add, formatUsd } from 'shared'` (or `shared/money`). Half-up, precision 40. **No `number` arithmetic for currency.**
+- Prisma stores decimals; UI snapshots today often use **preformatted strings** (`"$248,410.52"`). Do not switch the wire format in a drive-by. Holdings quantity is `Decimal(28,8)`; cash is `Decimal(18,2)`.
+- Fixtures (`fixtures.ts`) are demo/dev. Product first-run is an empty workspace. Keep fixtures working for tests; do not make them the only write path.
+- Parsers live under `packages/shared/src/parse/` (e.g. Chase card). Per-institution templates; synthetic samples until real files exist. `ParseError` is the typed failure.
+- `client-api-sdk`: hand-written `createClient({ baseUrl })`. Empty `baseUrl` → memory/fixtures. Keep `ClientApi` in sync with Nest routes. `pnpm client-api-sdk:generate` is a stub — do not assume OpenAPI codegen works.
+- `packages/scripts/pdf` is a CLI over pdf.js (`pnpm pdf:cli`), not the ingest worker.
+
+```ts
+// ❌ netWorth + amount
+// ✅ add(netWorth, amount) then formatUsd at the display boundary if needed
+```

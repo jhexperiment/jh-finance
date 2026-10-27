@@ -8,6 +8,7 @@ export const envSchema = z.object({
   DRAGONFLY_URL: z.string().default('redis://localhost:6379'),
   API_PREFIX: z.string().default('v1'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
+  DATA_DIR: z.string().default('data/documents'),
 });
 
 export type Env = z.infer<typeof envSchema>;

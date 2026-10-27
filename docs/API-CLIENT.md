@@ -41,7 +41,6 @@ Public REST for the Vite app. One implicit workspace (no tenant header, no user)
 apps/api/
 ├── nest-cli.json              # monorepo: client, processor, common, config
 ├── prisma/schema.prisma
-├── prisma/seed.ts             # upserts Account + Bill from shared fixtures
 ├── prisma.config.ts
 ├── generated/prisma/          # pnpm prisma:generate — do not edit
 ├── Dockerfile                 # ARG API_APP_NAME=client|processor
@@ -81,7 +80,7 @@ Thin HTTP modules import `@libs/common` services. Do not add domain REST on the 
 
 **Data flow**
 
-1. **Provisioning:** none. Seed (`pnpm prisma:seed:local`) upserts fixture accounts/bills for a future read path. Runtime ignores those rows.
+1. **Provisioning:** none. Accounts and bills are created by the app, not a seed script.
 2. **Init:** `envSchema.parse(process.env)`. If `DATABASE_URL` missing or connect fails, log “serving fixture data”. Domain methods do not branch on `prisma.isReady()`.
 3. **Workspace filter:** none.
 4. **Read:** controller → service → `shared` objects (formatted strings).
@@ -125,10 +124,10 @@ Schema: `apps/api/prisma/schema.prisma`. Generated client: `apps/api/generated/p
 
 | Model | Seeded | Served on GET | Notes |
 | --- | --- | --- | --- |
-| `Account` | ✅ from fixtures | ❌ (fixtures) | kinds `CREDIT_CARD\|BANK\|INVESTMENT\|CRYPTO` |
+| `Account` | ❌ | ❌ (fixtures) | kinds `CREDIT_CARD\|BANK\|INVESTMENT\|CRYPTO` |
 | `Transaction` | ❌ | ❌ | |
 | `Holding` | ❌ | ❌ | |
-| `Bill` | ✅ partial (no `paidFromId`/`dueAt`) | ❌ | `UTILITY\|INSURANCE` |
+| `Bill` | ❌ | ❌ | `UTILITY\|INSURANCE` |
 | `Document` / `ImportJob` | ❌ not in schema | — | **Required** by product |
 
 No tenant column. `PrismaService` exposes `$connect` / `$disconnect` / `isReady()` only.
@@ -188,7 +187,6 @@ Webpack Nest build. Output `apps/api/dist/apps/client`. `shared` is **bundled** 
 | `pnpm dev:api:client:local` | `api` `dev:api:client:local` |
 | `pnpm prisma:generate` | `prisma generate` |
 | `pnpm prisma:migrate:local` | `prisma migrate dev` with `.env.local` |
-| `pnpm prisma:seed:local` | `tsx prisma/seed.ts` |
 | `pnpm test:api` | Jest (`account.service.spec.ts`: 4 cards from fixtures) |
 | `pnpm client-api-sdk:generate` | stub; does not read this OpenAPI |
 
@@ -226,7 +224,6 @@ cp apps/api/.env.example apps/api/.env.local   # edit locally; do not commit
 docker compose up -d postgres dragonfly
 pnpm prisma:generate
 pnpm prisma:migrate:local
-pnpm prisma:seed:local
 pnpm dev:api:client:local
 # → http://localhost:3000/health
 # → http://localhost:3000/docs

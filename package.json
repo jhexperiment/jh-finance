@@ -25,8 +25,9 @@
     "test:web": "pnpm --filter @jh-finance/web test",
     "prisma:generate": "pnpm --filter api prisma:generate",
     "prisma:migrate:local": "pnpm --filter api prisma:migrate:local",
-    "prisma:seed:local": "pnpm --filter api prisma:seed:local",
-    "client-api-sdk:generate": "pnpm --filter client-api-sdk generate"
+    "prisma:reset:local": "pnpm --filter api prisma:reset:local",
+    "client-api-sdk:generate": "pnpm --filter client-api-sdk generate",
+    "pdf:cli": "packages/scripts/node_modules/.bin/tsx packages/scripts/pdf/cli/pdf.ts"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

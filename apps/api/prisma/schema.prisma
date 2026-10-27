@@ -34,12 +34,13 @@ model Account {
   transactions Transaction[]
   holdings     Holding[]
   bills        Bill[]        @relation("PaidFrom")
+  documents    Document[]
 }
 
 model Transaction {
   id          String   @id
   accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   postedAt    DateTime
   description String
   amount      Decimal  @db.Decimal(18, 2)
@@ -53,7 +54,7 @@ model Transaction {
 model Holding {
   id        String   @id
   accountId String
-  account   Account  @relation(fields: [accountId], references: [id])
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   name      String
   symbol    String?
   quantity  Decimal  @db.Decimal(28, 8)
@@ -76,4 +77,22 @@ model Bill {
   status          String
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model Document {
+  id            String    @id
+  accountId     String?
+  account       Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  kind          String
+  originalName  String
+  storedPath    String
+  mimeType      String
+  byteSize      Int
+  parser        String?
+  statementDate DateTime?
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([accountId])
 }

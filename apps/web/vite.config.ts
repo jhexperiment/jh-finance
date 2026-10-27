@@ -15,6 +15,9 @@ export default defineConfig({
       'client-api-sdk': path.resolve(root, '../../packages/client-api-sdk/src'),
     },
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist/legacy/build/pdf.mjs'],
+  },
   test: {
     environment: 'jsdom',
     globals: true,

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { BillModule } from '@libs/common';
+import { BillModule, LedgerModule } from '@libs/common';
 import { BillController } from './bill.controller';
 
 @Module({
-  imports: [BillModule],
+  imports: [BillModule, LedgerModule],
   controllers: [BillController],
 })
 export class BillHttpModule {}

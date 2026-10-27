@@ -1,40 +1,41 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { banks, cards, findBank, findCard, investments } from 'shared';
-import { PrismaService } from '../prisma/prisma.service';
+import { projectBanks, projectCards, projectInvestments } from 'shared';
+import { LedgerService } from '../ledger/ledger.service';
 
 @Injectable()
 export class AccountService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly ledger: LedgerService) {}
 
-  listCards() {
-    return cards;
+  async listCards() {
+    return projectCards(await this.ledger.snapshot());
   }
 
-  getCard(id: string) {
-    const card = findCard(id);
+  async getCard(id: string) {
+    const card = (await this.listCards()).find((item) => item.id === id);
     if (!card) {
       throw new NotFoundException(`Card ${id} not found`);
     }
     return card;
   }
 
-  listBanks() {
-    return banks;
+  async listBanks() {
+    return projectBanks(await this.ledger.snapshot());
   }
 
-  getBank(id: string) {
-    const bank = findBank(id);
+  async getBank(id: string) {
+    const bank = (await this.listBanks()).find((item) => item.id === id);
     if (!bank) {
       throw new NotFoundException(`Bank account ${id} not found`);
     }
     return bank;
   }
 
-  listInvestments() {
-    return investments;
+  async listInvestments() {
+    return projectInvestments(await this.ledger.snapshot());
   }
 
-  listAll() {
-    return [...cards, ...banks, ...investments];
+  async listAll() {
+    const snapshot = await this.ledger.snapshot();
+    return [...projectCards(snapshot), ...projectBanks(snapshot), ...projectInvestments(snapshot)];
   }
 }

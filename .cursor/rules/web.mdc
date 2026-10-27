@@ -1,0 +1,22 @@
+---
+description: Vite + React web client conventions for JH Finance
+globs: apps/web/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Web (`apps/web`)
+
+Vite 7 + React 19 SPA. Router in `src/app/router.tsx`. Shell: `WorkspaceLayout` (`max-w-[1200px]`, header nav). Data: TanStack Query → `src/api/client.ts` (`createClient` from `client-api-sdk`).
+
+- **No auth, no local DB, no SSR, no React Router loaders that need Node.** Pages are static-SPA routes.
+- **No** `hooks/`, `providers/`, `stores/`, `features/` folders. Pages live under `src/pages/<section>/`. Shared chrome in `src/components/ui/`. Ledger forms in `src/components/ledger/`.
+- Live API: `VITE_API_URL=http://localhost:3000/v1` (SDK paths are `/overview`, not `/v1/overview`). Unset or empty `VITE_API_URL` → in-process fixtures.
+- Nav order is IA: Overview, Cards, Banks, Bills, Investments (`/statements` is the Banks route). Crypto is under `/investments`. Insurance has **no** `/bills/:id` route.
+- Unknown `:id` → `<Navigate replace>` to the section list. Loading today is `if (!data) return null`; add a real empty/error state when you touch that page, do not invent a new shell.
+- Style: Tailwind 4 tokens in `src/index.css`. Prettier `semi: false`. No `sm:`/`md:`/`lg:` breakpoints (desktop workspace).
+- Tests: Vitest + Testing Library. Run `pnpm test:web`.
+
+```tsx
+// ❌ new sidebar, shadcn/Radix, Auth0, or a sixth nav item
+// ✅ PageHeader + PrimaryButton/GhostButton + Card; section → /:id detail
+```

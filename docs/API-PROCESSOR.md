@@ -101,7 +101,7 @@ No `/v1`, no `/docs`. Anything else is out of scope for this process.
 
 ### Database / Collections
 
-Processor does not read or write tables. `HoldingService.listAccounts()` returns shared `investments`. Seeded `Account` / empty `Holding` are unused.
+Processor does not read or write tables. `HoldingService.listAccounts()` returns shared `investments`. Prisma `Account` / `Holding` are unused here.
 
 When parse exists, this process should be the writer for parse results (table ownership stays in `libs/common` services). See product collections in [JH-FINANCE.md](./JH-FINANCE.md) §9.
 

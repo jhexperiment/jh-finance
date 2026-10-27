@@ -1,0 +1,26 @@
+---
+description: Nest client and processor conventions for JH Finance
+globs: apps/api/**/*.{ts,mjs,prisma}
+alwaysApply: false
+---
+
+# API (`apps/api`)
+
+One pnpm package, two Nest processes. Do not flatten `client` / `processor` into sibling Turbo apps.
+
+| Process | HTTP | Owns |
+| --- | --- | --- |
+| `client` | `:3000`, prefix `v1` (not `health` or `/docs`) | REST, uploads, enqueue |
+| `processor` | `:3001`, `GET /health` only | BullMQ workers |
+
+- Thin HTTP modules under `apps/client/src/` import `@libs/common`. Domain logic stays in `libs/common`. **No domain REST on the processor.**
+- Env: Zod `envSchema` in `libs/config`. Local file is `apps/api/.env.local` (never commit). Scripts `source` that file from `apps/api`, not the repo root.
+- Prisma 7: URL in `prisma.config.ts`; schema in `prisma/schema.prisma`. Client output `generated/prisma/` — never edit; `pnpm prisma:generate`. Query through services, not raw from controllers.
+- `AccountKind` in Prisma is `CREDIT_CARD` / `BANK` / `INVESTMENT` / `CRYPTO`. Shared TS is kebab-case (`credit-card`, …). Map at the boundary.
+- Parse/ingest jobs: new queue + processor module (same shape as `price-sync`). Do **not** extend `price-sync` to parse PDFs. Nobody should add `/v1/overview` on `:3001`.
+- Webpack bundles `shared` into Nest output. Tests: Jest (`pnpm test:api`). API Prettier uses semicolons.
+
+```ts
+// ✅ controller → @libs/common service → Prisma or parser
+// ❌ business rules in the controller, or ledger GET/POST on processor
+```

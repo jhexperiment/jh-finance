@@ -1,21 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { findInvestment, investments, investmentsOverview } from 'shared';
+import { projectInvestment, projectInvestments, projectInvestmentsOverview } from 'shared';
+import { LedgerService } from '../ledger/ledger.service';
 
 @Injectable()
 export class HoldingService {
-  listAccounts() {
-    return investments;
+  constructor(private readonly ledger: LedgerService) {}
+
+  async listAccounts() {
+    return projectInvestments(await this.ledger.snapshot());
   }
 
-  getAccount(id: string) {
-    const account = findInvestment(id);
+  async getAccount(id: string) {
+    const snapshot = await this.ledger.snapshot();
+    const account = snapshot.accounts.find(
+      (item) => item.id === id && (item.kind === 'investment' || item.kind === 'crypto'),
+    );
     if (!account) {
       throw new NotFoundException(`Investment account ${id} not found`);
     }
-    return account;
+    return projectInvestment(account, snapshot);
   }
 
-  overview() {
-    return investmentsOverview;
+  async overview() {
+    return projectInvestmentsOverview(await this.ledger.snapshot());
   }
 }

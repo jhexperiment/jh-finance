@@ -9,6 +9,7 @@
     "generate": "node ./scripts/generate.mjs"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.4.299",
     "shared": "workspace:*"
   },
   "devDependencies": {

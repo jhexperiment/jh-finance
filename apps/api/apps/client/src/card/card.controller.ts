@@ -1,6 +1,7 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { AccountService, OverviewService, TransactionService } from '@libs/common';
+import { BadRequestException, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { AccountService, IngestService, OverviewService, TransactionService } from '@libs/common';
+import type { FastifyRequest } from 'fastify';
 
 @ApiTags('cards')
 @Controller('cards')
@@ -9,6 +10,7 @@ export class CardController {
     private readonly accountService: AccountService,
     private readonly overviewService: OverviewService,
     private readonly transactionService: TransactionService,
+    private readonly ingest: IngestService,
   ) {}
 
   @Get('overview')
@@ -21,6 +23,30 @@ export class CardController {
   @ApiOkResponse({ description: 'Credit cards' })
   list() {
     return this.accountService.listCards();
+  }
+
+  @Post('statements')
+  @ApiConsumes('multipart/form-data')
+  @ApiCreatedResponse({ description: 'Imported Chase card statement; creates the card if the last four are new' })
+  async importStatement(
+    @Req() request: FastifyRequest,
+    @Query('confirm') confirm?: string,
+  ) {
+    const file = await (
+      request as FastifyRequest & {
+        file: () => Promise<{ toBuffer: () => Promise<Buffer>; filename: string; mimetype: string } | undefined>
+      }
+    ).file();
+    if (!file) {
+      throw new BadRequestException('Choose a PDF statement');
+    }
+    const bytes = await file.toBuffer();
+    return this.ingest.importCardStatement({
+      bytes,
+      filename: file.filename,
+      mimeType: file.mimetype,
+      confirm: confirm === 'replace' ? 'replace' : undefined,
+    });
   }
 
   @Get(':id')

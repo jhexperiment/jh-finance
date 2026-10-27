@@ -17,6 +17,7 @@ import { CardHttpModule } from './card/card.module';
 import { BankHttpModule } from './bank/bank.module';
 import { InvestmentHttpModule } from './investment/investment.module';
 import { BillHttpModule } from './bill/bill.module';
+import { LedgerHttpModule } from './ledger/ledger.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { BillHttpModule } from './bill/bill.module';
     BankHttpModule,
     InvestmentHttpModule,
     BillHttpModule,
+    LedgerHttpModule,
   ],
 })
 export class ClientModule {}

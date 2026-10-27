@@ -13,7 +13,7 @@ export class PriceSyncProcessor extends WorkerHost {
   }
 
   async process(_job: Job) {
-    const accounts = this.holdingService.listAccounts();
+    const accounts = await this.holdingService.listAccounts();
     this.logger.log(`Price sync placeholder for ${accounts.length} investment accounts`);
     return { accounts: accounts.length };
   }

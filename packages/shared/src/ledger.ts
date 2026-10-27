@@ -1,0 +1,878 @@
+import { formatUsd, money, sum } from './money'
+import type {
+  AccountGroup,
+  AccountKind,
+  AccountSummary,
+  ActivityRow,
+  AllocationSlice,
+  BankAccount,
+  BanksOverview,
+  BillsOverview,
+  CardAccount,
+  CardsOverview,
+  Holding,
+  InsurancePolicy,
+  InvestmentAccount,
+  InvestmentsOverview,
+  OverviewSnapshot,
+  Tone,
+  UtilityAccount,
+} from './types'
+
+export const BILL_KINDS = ['utility', 'insurance'] as const
+export type BillKind = (typeof BILL_KINDS)[number]
+
+export interface LedgerAccount {
+  id: string
+  name: string
+  kind: AccountKind
+  subtype: string
+  mask?: string | null
+  balance: string
+  currency: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LedgerTransaction {
+  id: string
+  accountId: string
+  postedAt: string
+  description: string
+  amount: string
+  category?: string | null
+  status?: string | null
+  createdAt: string
+}
+
+export interface LedgerHolding {
+  id: string
+  accountId: string
+  name: string
+  symbol?: string | null
+  quantity: string
+  value: string
+  costBasis: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LedgerBill {
+  id: string
+  name: string
+  kind: BillKind
+  amount: string
+  dueAt?: string | null
+  paidFromId?: string | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LedgerSnapshot {
+  accounts: LedgerAccount[]
+  transactions: LedgerTransaction[]
+  holdings: LedgerHolding[]
+  bills: LedgerBill[]
+}
+
+export interface CreateAccountInput {
+  name: string
+  kind: AccountKind
+  subtype?: string
+  mask?: string
+  balance?: string
+}
+
+export interface UpdateAccountInput {
+  name?: string
+  subtype?: string
+  mask?: string | null
+  balance?: string
+}
+
+export interface CreateTransactionInput {
+  accountId: string
+  postedAt?: string
+  description: string
+  amount: string
+  category?: string
+  status?: string
+}
+
+export interface UpdateTransactionInput {
+  postedAt?: string
+  description?: string
+  amount?: string
+  category?: string | null
+  status?: string | null
+}
+
+export interface CreateHoldingInput {
+  accountId: string
+  name: string
+  symbol?: string
+  quantity?: string
+  value: string
+  costBasis?: string
+}
+
+export interface UpdateHoldingInput {
+  name?: string
+  symbol?: string | null
+  quantity?: string
+  value?: string
+  costBasis?: string
+}
+
+export interface CreateBillInput {
+  name: string
+  kind: BillKind
+  amount?: string
+  dueAt?: string
+  paidFromId?: string
+  status?: string
+}
+
+export interface UpdateBillInput {
+  name?: string
+  amount?: string
+  dueAt?: string | null
+  paidFromId?: string | null
+  status?: string
+}
+
+export const DEFAULT_SUBTYPE: Record<AccountKind, string> = {
+  'credit-card': 'Credit card',
+  bank: 'Checking',
+  investment: 'Brokerage',
+  crypto: 'Crypto',
+}
+
+export const ACCOUNT_KIND_TO_PRISMA: Record<AccountKind, string> = {
+  'credit-card': 'CREDIT_CARD',
+  bank: 'BANK',
+  investment: 'INVESTMENT',
+  crypto: 'CRYPTO',
+}
+
+export const PRISMA_KIND_TO_ACCOUNT: Record<string, AccountKind> = {
+  CREDIT_CARD: 'credit-card',
+  BANK: 'bank',
+  INVESTMENT: 'investment',
+  CRYPTO: 'crypto',
+}
+
+export const BILL_KIND_TO_PRISMA: Record<BillKind, string> = {
+  utility: 'UTILITY',
+  insurance: 'INSURANCE',
+}
+
+export const PRISMA_KIND_TO_BILL: Record<string, BillKind> = {
+  UTILITY: 'utility',
+  INSURANCE: 'insurance',
+}
+
+const SLICE_COLORS = ['#0E6B63', '#2B5BA8', '#B7791F', '#7A4E9B', '#D4A24C', '#B9BEC8']
+
+export function emptyLedger(): LedgerSnapshot {
+  return { accounts: [], transactions: [], holdings: [], bills: [] }
+}
+
+export function newLedgerId(): string {
+  return crypto.randomUUID()
+}
+
+export function parseMoneyInput(value: string | undefined, digits = 2): string {
+  const trimmed = (value ?? '').trim()
+  if (!trimmed) return money(0).toFixed(digits)
+  const normalized = trimmed.replace(/[$,\s]/g, '')
+  const amount = money(normalized)
+  if (!amount.isFinite()) {
+    throw new Error('Enter a valid amount')
+  }
+  return amount.toFixed(digits)
+}
+
+export function parseDateInput(value: string | undefined): Date | null {
+  const day = value?.trim().slice(0, 10)
+  if (!day) return null
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new Error('Enter a valid date')
+  }
+  return new Date(`${day}T12:00:00.000Z`)
+}
+
+export function isoFromDate(value: Date | string | null | undefined): string | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return date.toISOString()
+}
+
+export function nowIso(): string {
+  return new Date().toISOString()
+}
+
+function groupFor(kind: AccountKind): AccountGroup {
+  if (kind === 'credit-card') return 'cards'
+  if (kind === 'bank') return 'banks'
+  if (kind === 'crypto') return 'crypto'
+  return 'investments'
+}
+
+function hrefFor(account: Pick<LedgerAccount, 'id' | 'kind'>): string {
+  if (account.kind === 'credit-card') return `/cards/${account.id}`
+  if (account.kind === 'bank') return `/statements/${account.id}`
+  return `/investments/${account.id}`
+}
+
+function formatDay(iso: string): string {
+  const day = iso.slice(0, 10)
+  const [year, month, date] = day.split('-').map(Number)
+  if (!year || !month || !date) return iso
+  return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function byPostedDesc(a: LedgerTransaction, b: LedgerTransaction): number {
+  return b.postedAt.localeCompare(a.postedAt)
+}
+
+function amountTone(value: string): Tone | undefined {
+  return money(value).isPositive() ? 'gain' : undefined
+}
+
+function gainTone(value: string): Tone {
+  const amount = money(value)
+  if (amount.isPositive()) return 'gain'
+  if (amount.isNegative()) return 'loss'
+  return 'muted'
+}
+
+function toActivityRow(row: LedgerTransaction, accountName?: string): ActivityRow {
+  return {
+    id: row.id,
+    date: formatDay(row.postedAt),
+    description: row.description,
+    account: accountName,
+    category: row.category ?? undefined,
+    status: row.status ?? 'Posted',
+    amount: formatUsd(row.amount),
+    amountTone: amountTone(row.amount),
+  }
+}
+
+function accountName(snapshot: LedgerSnapshot, id: string | null | undefined): string {
+  if (!id) return '—'
+  return snapshot.accounts.find((account) => account.id === id)?.name ?? '—'
+}
+
+function txnsFor(snapshot: LedgerSnapshot, accountId: string): LedgerTransaction[] {
+  return snapshot.transactions.filter((row) => row.accountId === accountId).sort(byPostedDesc)
+}
+
+function holdingsFor(snapshot: LedgerSnapshot, accountId: string): LedgerHolding[] {
+  return snapshot.holdings.filter((row) => row.accountId === accountId)
+}
+
+function currentMonthKey(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthKey(iso: string): string {
+  return iso.slice(0, 7)
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, (month ?? 1) - 1, 1)).toLocaleDateString('en-US', {
+    month: 'short',
+    timeZone: 'UTC',
+  })
+}
+
+function slicesFrom(entries: { label: string; value: number }[]): AllocationSlice[] {
+  const total = entries.reduce((sumValue, entry) => sumValue + entry.value, 0)
+  if (total <= 0) return []
+  return entries
+    .filter((entry) => entry.value > 0)
+    .map((entry, index) => ({
+      label: entry.label,
+      pct: Math.round((entry.value / total) * 100),
+      color: SLICE_COLORS[index % SLICE_COLORS.length],
+    }))
+}
+
+function statusTone(status: string): Tone {
+  const value = status.toLowerCase()
+  if (value.includes('due') && !value.includes('paid')) return 'warn'
+  if (value.includes('paid') || value.includes('ok')) return 'gain'
+  return 'default'
+}
+
+export function toAccountSummary(account: LedgerAccount): AccountSummary {
+  const value = formatUsd(account.balance)
+  return {
+    id: account.id,
+    name: account.name,
+    kind: account.kind,
+    group: groupFor(account.kind),
+    href: hrefFor(account),
+    subtitle: account.mask ? `Ending ${account.mask}` : account.subtype,
+    typeLabel: account.subtype,
+    mask: account.mask ?? undefined,
+    balance: value,
+    balanceTone: account.kind === 'credit-card' && !money(account.balance).isZero() ? 'warn' : undefined,
+  }
+}
+
+export function projectAccounts(snapshot: LedgerSnapshot): AccountSummary[] {
+  return snapshot.accounts.map(toAccountSummary)
+}
+
+export function projectCard(account: LedgerAccount, snapshot: LedgerSnapshot): CardAccount {
+  const transactions = txnsFor(snapshot, account.id).map((row) => toActivityRow(row, account.name))
+  return {
+    ...toAccountSummary(account),
+    kind: 'credit-card',
+    statementBalance: formatUsd(account.balance),
+    minimumDue: '—',
+    dueDate: '—',
+    creditLimit: '—',
+    utilization: '—',
+    rewards: '—',
+    rewardsHint: '',
+    series: [{ label: 'Now', value: money(account.balance).abs().toNumber() }],
+    seriesCaption: transactions.length
+      ? countLabel(transactions.length, 'transaction')
+      : 'No activity yet. Add a charge or payment, or upload a statement later.',
+    details: [
+      { label: 'Account type', value: account.subtype },
+      { label: 'Card ending', value: account.mask || '—' },
+      { label: 'Currency', value: account.currency },
+    ],
+    transactions,
+    primaryAction: 'Add activity',
+    secondaryAction: 'Edit card',
+  }
+}
+
+export function projectCards(snapshot: LedgerSnapshot): CardAccount[] {
+  return snapshot.accounts.filter((account) => account.kind === 'credit-card').map((account) => projectCard(account, snapshot))
+}
+
+export function projectBank(account: LedgerAccount, snapshot: LedgerSnapshot): BankAccount {
+  const rows = txnsFor(snapshot, account.id)
+  const activity = rows.map((row) => toActivityRow(row, account.name))
+  const moneyIn = sum(rows.filter((row) => money(row.amount).isPositive()).map((row) => row.amount))
+  const moneyOut = sum(rows.filter((row) => money(row.amount).isNegative()).map((row) => row.amount)).abs()
+  return {
+    ...toAccountSummary(account),
+    kind: 'bank',
+    available: formatUsd(account.balance),
+    moneyIn: formatUsd(moneyIn),
+    moneyOut: formatUsd(moneyOut),
+    metrics: [
+      { label: 'Balance', value: formatUsd(account.balance), hint: account.mask ? `Ending ${account.mask}` : account.subtype },
+      { label: 'Money in', value: formatUsd(moneyIn), hint: 'Recorded credits', tone: 'gain' },
+      { label: 'Money out', value: formatUsd(moneyOut), hint: 'Recorded debits' },
+      {
+        label: 'Net recorded',
+        value: formatUsd(moneyIn.minus(moneyOut)),
+        hint: countLabel(rows.length, 'line'),
+        tone: moneyIn.minus(moneyOut).isNegative() ? 'loss' : 'gain',
+      },
+    ],
+    series: [{ label: 'Now', value: money(account.balance).toNumber() }],
+    seriesCaption: rows.length
+      ? countLabel(rows.length, 'recorded line')
+      : 'No activity yet. Add a line or upload a statement later.',
+    details: [
+      { label: 'Account type', value: account.subtype },
+      { label: 'Mask', value: account.mask || '—' },
+      { label: 'Currency', value: account.currency },
+    ],
+    activity,
+    statementStatus: 'Manual',
+    lastActivity: rows[0] ? formatDay(rows[0].postedAt) : '—',
+    primaryAction: 'Add activity',
+    secondaryAction: 'Edit account',
+  }
+}
+
+export function projectBanks(snapshot: LedgerSnapshot): BankAccount[] {
+  return snapshot.accounts.filter((account) => account.kind === 'bank').map((account) => projectBank(account, snapshot))
+}
+
+function projectHolding(row: LedgerHolding, account: LedgerAccount, totalValue: number): Holding {
+  const gain = money(row.value).minus(row.costBasis)
+  const share = totalValue > 0 ? `${Math.round((money(row.value).toNumber() / totalValue) * 100)}%` : '—'
+  return {
+    id: row.id,
+    name: row.name,
+    detail: [row.symbol, `${money(row.quantity).toString()} units`].filter(Boolean).join(' · '),
+    accountId: account.id,
+    accountName: account.name,
+    type: 'Holding',
+    share,
+    value: formatUsd(row.value),
+    dayPct: '—',
+    dayTone: 'muted',
+    totalGain: formatUsd(gain, { sign: 'always' }),
+    totalGainTone: gainTone(gain.toString()),
+  }
+}
+
+function accountInvestedValue(account: LedgerAccount, snapshot: LedgerSnapshot): ReturnType<typeof money> {
+  const rows = holdingsFor(snapshot, account.id)
+  if (rows.length > 0) {
+    return sum(rows.map((row) => row.value))
+  }
+  return money(account.balance)
+}
+
+export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapshot): InvestmentAccount {
+  const holdingRows = holdingsFor(snapshot, account.id)
+  const value = accountInvestedValue(account, snapshot)
+  const cost = holdingRows.length > 0 ? sum(holdingRows.map((row) => row.costBasis)) : money(0)
+  const gain = holdingRows.length > 0 ? value.minus(cost) : money(0)
+  const holdings = holdingRows.map((row) => projectHolding(row, account, value.toNumber()))
+  const activity = txnsFor(snapshot, account.id).map((row) => toActivityRow(row, account.name))
+  const mix = slicesFrom(holdingRows.map((row) => ({ label: row.name, value: money(row.value).toNumber() })))
+  return {
+    ...toAccountSummary(account),
+    kind: account.kind === 'crypto' ? 'crypto' : 'investment',
+    extra: countLabel(holdingRows.length, 'holding'),
+    value: formatUsd(value),
+    share: undefined,
+    dayChange: '—',
+    dayTone: 'muted',
+    totalGain: holdingRows.length > 0 ? formatUsd(gain, { sign: 'always' }) : '—',
+    totalGainTone: holdingRows.length > 0 ? gainTone(gain.toString()) : 'muted',
+    costBasis: holdingRows.length > 0 ? formatUsd(cost) : '—',
+    metrics: [
+      { label: 'Value', value: formatUsd(value), hint: account.subtype },
+      {
+        label: 'Total gain',
+        value: holdingRows.length > 0 ? formatUsd(gain, { sign: 'always' }) : '—',
+        hint: holdingRows.length > 0 ? `Cost basis ${formatUsd(cost)}` : 'Add holdings to track gain',
+        tone: holdingRows.length > 0 ? gainTone(gain.toString()) : 'muted',
+      },
+      { label: 'Holdings', value: String(holdingRows.length), hint: holdingRows.length ? 'Manual lots' : 'None yet' },
+      { label: 'Activity', value: String(activity.length), hint: activity.length ? 'Recorded lines' : 'None yet' },
+    ],
+    series: [{ label: 'Now', value: value.toNumber() }],
+    seriesCaption: holdingRows.length
+      ? 'Value from holdings. Prices are not live.'
+      : 'No holdings yet. Add one or upload a statement later.',
+    details: [
+      { label: 'Account type', value: account.subtype },
+      { label: 'Kind', value: account.kind === 'crypto' ? 'Crypto' : 'Investment' },
+      { label: 'Currency', value: account.currency },
+    ],
+    mix: mix.length > 0 ? mix : undefined,
+    holdings,
+    activity,
+    primaryAction: 'Add holding',
+    secondaryAction: 'Edit account',
+  }
+}
+
+export function projectInvestments(snapshot: LedgerSnapshot): InvestmentAccount[] {
+  const accounts = snapshot.accounts
+    .filter((account) => account.kind === 'investment' || account.kind === 'crypto')
+    .map((account) => projectInvestment(account, snapshot))
+  const total = sum(accounts.map((account) => parseUsdNumber(account.value)))
+  const totalValue = total.toNumber()
+  return accounts.map((account) => ({
+    ...account,
+    share: totalValue > 0 ? `${Math.round((parseUsdNumber(account.value) / totalValue) * 100)}%` : '—',
+  }))
+}
+
+function parseUsdNumber(value: string): number {
+  return money(value.replace(/[^0-9.-]/g, '') || 0).toNumber()
+}
+
+export function projectUtility(bill: LedgerBill, snapshot: LedgerSnapshot): UtilityAccount {
+  const paidFrom = accountName(snapshot, bill.paidFromId)
+  return {
+    id: bill.id,
+    name: bill.name,
+    href: `/bills/${bill.id}`,
+    subtitle: 'Utility',
+    paidFrom,
+    nextDue: bill.dueAt ? formatDay(bill.dueAt) : '—',
+    status: bill.status,
+    statusTone: statusTone(bill.status),
+    lastBill: formatUsd(bill.amount),
+    metrics: [
+      { label: 'Amount', value: formatUsd(bill.amount), hint: 'Last recorded bill' },
+      { label: 'Next due', value: bill.dueAt ? formatDay(bill.dueAt) : '—', hint: bill.status },
+      { label: 'Paid from', value: paidFrom, hint: bill.paidFromId ? 'Linked account' : 'Not linked' },
+      { label: 'Status', value: bill.status, hint: 'Manual', tone: statusTone(bill.status) },
+    ],
+    series: [],
+    seriesUnit: '',
+    seriesCaption: 'Usage history will show after a statement import.',
+    details: [
+      { label: 'Type', value: 'Utility' },
+      { label: 'Status', value: bill.status },
+      { label: 'Paid from', value: paidFrom },
+    ],
+    history: [
+      {
+        id: bill.id,
+        date: bill.dueAt ? formatDay(bill.dueAt) : '—',
+        description: bill.name,
+        account: paidFrom,
+        status: bill.status,
+        amount: formatUsd(bill.amount),
+      },
+    ],
+    primaryAction: 'Edit bill',
+    secondaryAction: 'Edit bill',
+  }
+}
+
+export function projectUtilities(snapshot: LedgerSnapshot): UtilityAccount[] {
+  return snapshot.bills.filter((bill) => bill.kind === 'utility').map((bill) => projectUtility(bill, snapshot))
+}
+
+export function projectInsurance(snapshot: LedgerSnapshot): InsurancePolicy[] {
+  return snapshot.bills
+    .filter((bill) => bill.kind === 'insurance')
+    .map((bill) => ({
+      id: bill.id,
+      name: bill.name,
+      renewal: bill.dueAt ? formatDay(bill.dueAt) : bill.status,
+      premium: formatUsd(bill.amount),
+      rows: [
+        { label: 'Status', value: bill.status },
+        { label: 'Paid from', value: accountName(snapshot, bill.paidFromId) },
+      ],
+    }))
+}
+
+export function projectOverview(snapshot: LedgerSnapshot): OverviewSnapshot {
+  const banks = snapshot.accounts.filter((account) => account.kind === 'bank')
+  const cards = snapshot.accounts.filter((account) => account.kind === 'credit-card')
+  const investments = snapshot.accounts.filter((account) => account.kind === 'investment')
+  const crypto = snapshot.accounts.filter((account) => account.kind === 'crypto')
+  const cash = sum(banks.map((account) => account.balance))
+  const cardBalances = sum(cards.map((account) => account.balance))
+  const retirement = sum(investments.map((account) => accountInvestedValue(account, snapshot)))
+  const cryptoValue = sum(crypto.map((account) => accountInvestedValue(account, snapshot)))
+  const net = cash.plus(retirement).plus(cryptoValue).minus(cardBalances)
+  const names = new Map(snapshot.accounts.map((account) => [account.id, account.name]))
+  const activity = [...snapshot.transactions]
+    .sort(byPostedDesc)
+    .slice(0, 8)
+    .map((row) => toActivityRow(row, names.get(row.accountId)))
+
+  const attention = [
+    ...cards
+      .filter((account) => money(account.balance).greaterThan(0))
+      .map((account) => ({
+        id: `card-${account.id}`,
+        title: `Card balance on ${account.name}`,
+        body: `${formatUsd(account.balance)} recorded. Pay from your issuer app, or add a payment here.`,
+        tone: 'warn' as const,
+      })),
+    ...snapshot.bills
+      .filter((bill) => {
+        const tone = statusTone(bill.status)
+        if (tone === 'warn') return true
+        if (!bill.dueAt) return false
+        const due = new Date(bill.dueAt).getTime()
+        const soon = Date.now() + 10 * 24 * 60 * 60 * 1000
+        return due <= soon && due >= Date.now() - 24 * 60 * 60 * 1000
+      })
+      .map((bill) => ({
+        id: `bill-${bill.id}`,
+        title: `${bill.name} ${bill.status.toLowerCase()}`,
+        body: `${formatUsd(bill.amount)}${bill.dueAt ? ` · ${formatDay(bill.dueAt)}` : ''}`,
+        tone: 'warn' as const,
+      })),
+  ].slice(0, 5)
+
+  return {
+    netWorth: formatUsd(net),
+    netWorthChange: snapshot.accounts.length ? 'From recorded balances' : '',
+    range: '1Y',
+    series: snapshot.accounts.length ? [{ label: 'Now', value: net.toNumber() }] : [],
+    seriesLabels: snapshot.accounts.length ? ['', 'Now', ''] : ['', '', ''],
+    cash: formatUsd(cash),
+    cashHint: banks.length ? countLabel(banks.length, 'bank account') : 'No bank accounts',
+    cardBalances: formatUsd(cardBalances),
+    cardHint: cards.length ? countLabel(cards.length, 'card') : 'No cards',
+    retirement: formatUsd(retirement),
+    retirementHint: investments.length ? countLabel(investments.length, 'investment account') : 'No investment accounts',
+    crypto: formatUsd(cryptoValue),
+    cryptoHint: crypto.length ? countLabel(crypto.length, 'crypto account') : 'No crypto accounts',
+    allocation: slicesFrom([
+      { label: 'Cash', value: cash.toNumber() },
+      { label: 'Investments', value: retirement.toNumber() },
+      { label: 'Crypto', value: cryptoValue.toNumber() },
+    ]),
+    attention,
+    activity,
+  }
+}
+
+export function projectCardsOverview(snapshot: LedgerSnapshot): CardsOverview {
+  const cards = snapshot.accounts.filter((account) => account.kind === 'credit-card')
+  const cardIds = new Set(cards.map((account) => account.id))
+  const transactions = snapshot.transactions.filter((row) => cardIds.has(row.accountId)).sort(byPostedDesc)
+  const month = currentMonthKey()
+  const thisMonth = transactions.filter((row) => monthKey(row.postedAt) === month)
+  const spent = sum(thisMonth.filter((row) => money(row.amount).isNegative()).map((row) => row.amount)).abs()
+  const due = sum(cards.map((account) => account.balance))
+  const names = new Map(cards.map((account) => [account.id, account.name]))
+  const spendByCategory = new Map<string, ReturnType<typeof money>>()
+  for (const row of thisMonth.filter((item) => money(item.amount).isNegative())) {
+    const label = row.category?.trim() || 'Uncategorized'
+    spendByCategory.set(label, (spendByCategory.get(label) ?? money(0)).plus(money(row.amount).abs()))
+  }
+  const categoryEntries = [...spendByCategory.entries()].sort((a, b) => b[1].minus(a[1]).toNumber())
+  const spentTotal = spent.toNumber() || 1
+  return {
+    spent: formatUsd(spent),
+    spentHint: thisMonth.length ? countLabel(thisMonth.length, 'transaction') + ' this month' : 'No card activity this month',
+    projected: formatUsd(due),
+    projectedHint: cards.length ? 'Current recorded balances' : 'No cards yet',
+    due: formatUsd(due),
+    dueHint: cards.length ? countLabel(cards.length, 'card') : 'No cards',
+    categories: categoryEntries.map(([label, amount], index) => ({
+      label,
+      amount: formatUsd(amount),
+      pct: Math.round((amount.toNumber() / spentTotal) * 100),
+      color: SLICE_COLORS[index % SLICE_COLORS.length],
+    })),
+    recurringNote: transactions.length
+      ? 'Recurring detection needs imported history.'
+      : 'Add activity or import a statement to classify spend.',
+    transactions: transactions.slice(0, 12).map((row) => toActivityRow(row, names.get(row.accountId))),
+  }
+}
+
+export function projectBanksOverview(snapshot: LedgerSnapshot): BanksOverview {
+  const banks = snapshot.accounts.filter((account) => account.kind === 'bank')
+  const bankIds = new Set(banks.map((account) => account.id))
+  const lines = snapshot.transactions.filter((row) => bankIds.has(row.accountId)).sort(byPostedDesc)
+  const income = sum(lines.filter((row) => money(row.amount).isPositive()).map((row) => row.amount))
+  const spending = sum(lines.filter((row) => money(row.amount).isNegative()).map((row) => row.amount)).abs()
+  const savings = income.isZero() ? money(0) : income.minus(spending).div(income).times(100)
+  const names = new Map(banks.map((account) => [account.id, account.name]))
+  const byMonth = new Map<string, { income: number; spending: number }>()
+  for (const row of lines) {
+    const key = monthKey(row.postedAt)
+    const bucket = byMonth.get(key) ?? { income: 0, spending: 0 }
+    if (money(row.amount).isPositive()) bucket.income += money(row.amount).toNumber()
+    else bucket.spending += money(row.amount).abs().toNumber()
+    byMonth.set(key, bucket)
+  }
+  const monthKeys = [...byMonth.keys()].sort().slice(-6)
+  const rawPair = monthKeys.map((key) => ({
+    label: monthLabel(key),
+    income: byMonth.get(key)?.income ?? 0,
+    spending: byMonth.get(key)?.spending ?? 0,
+  }))
+  const maxBar = Math.max(...rawPair.flatMap((point) => [point.income, point.spending]), 1)
+  const outflowsMap = new Map<string, ReturnType<typeof money>>()
+  for (const row of lines.filter((item) => money(item.amount).isNegative())) {
+    const label = row.category?.trim() || row.description
+    outflowsMap.set(label, (outflowsMap.get(label) ?? money(0)).plus(money(row.amount).abs()))
+  }
+  return {
+    total: formatUsd(sum(banks.map((account) => account.balance))),
+    income: formatUsd(income),
+    spending: formatUsd(spending),
+    savingsRate: income.isZero() ? '—' : `${savings.toFixed(0)}%`,
+    savingsHint: lines.length ? 'From recorded credits and debits' : 'Add activity to compute a savings rate',
+    pairSeries: rawPair.map((point) => ({
+      label: point.label,
+      income: Math.round((point.income / maxBar) * 140),
+      spending: Math.round((point.spending / maxBar) * 140),
+    })),
+    outflows: [...outflowsMap.entries()]
+      .sort((a, b) => b[1].minus(a[1]).toNumber())
+      .slice(0, 6)
+      .map(([label, amount]) => ({ label, amount: formatUsd(amount) })),
+    lines: lines.slice(0, 12).map((row) => toActivityRow(row, names.get(row.accountId))),
+  }
+}
+
+export function projectInvestmentsOverview(snapshot: LedgerSnapshot): InvestmentsOverview {
+  const accounts = projectInvestments(snapshot)
+  const cryptoAccounts = accounts.filter((account) => account.kind === 'crypto')
+  const total = sum(accounts.map((account) => parseUsdNumber(account.value)))
+  const holdings = accounts.flatMap((account) => account.holdings).sort((a, b) => parseUsdNumber(b.value) - parseUsdNumber(a.value))
+  const cost = sum(
+    snapshot.holdings
+      .filter((row) => snapshot.accounts.some((account) => account.id === row.accountId && (account.kind === 'investment' || account.kind === 'crypto')))
+      .map((row) => row.costBasis),
+  )
+  const value = sum(
+    snapshot.holdings
+      .filter((row) => snapshot.accounts.some((account) => account.id === row.accountId && (account.kind === 'investment' || account.kind === 'crypto')))
+      .map((row) => row.value),
+  )
+  const gain = snapshot.holdings.length ? value.minus(cost) : money(0)
+  const cryptoHoldings = snapshot.holdings.filter((row) =>
+    snapshot.accounts.some((account) => account.id === row.accountId && account.kind === 'crypto'),
+  )
+  const cryptoGain = cryptoHoldings.length
+    ? sum(cryptoHoldings.map((row) => row.value)).minus(sum(cryptoHoldings.map((row) => row.costBasis)))
+    : money(0)
+  return {
+    total: formatUsd(total),
+    totalHint: accounts.length ? countLabel(accounts.length, 'account') : 'No investment accounts',
+    gain: snapshot.holdings.length ? formatUsd(gain, { sign: 'always' }) : '—',
+    gainHint: snapshot.holdings.length ? `Cost basis ${formatUsd(cost)}` : 'Add holdings to track gain',
+    cryptoUnrealized: cryptoHoldings.length ? formatUsd(cryptoGain, { sign: 'always' }) : formatUsd(0),
+    cryptoHint: cryptoAccounts.length ? countLabel(cryptoAccounts.length, 'crypto account') : 'No crypto accounts',
+    allocation: slicesFrom(accounts.map((account) => ({ label: account.name, value: parseUsdNumber(account.value) }))),
+    holdings: holdings.slice(0, 12),
+    callout: holdings.length
+      ? {
+          title: 'Holdings are manual',
+          body: 'Values are what you typed. Prices are not live, and no trades are placed.',
+        }
+      : {
+          title: 'No holdings yet',
+          body: 'Add a holding to an account, or import a statement later.',
+        },
+  }
+}
+
+export function projectBillsOverview(snapshot: LedgerSnapshot): BillsOverview {
+  const utilities = snapshot.bills.filter((bill) => bill.kind === 'utility')
+  const insurance = snapshot.bills.filter((bill) => bill.kind === 'insurance')
+  const dueSoon = snapshot.bills.filter((bill) => {
+    if (!bill.dueAt) return statusTone(bill.status) === 'warn'
+    const due = new Date(bill.dueAt).getTime()
+    return due <= Date.now() + 10 * 24 * 60 * 60 * 1000
+  })
+  const nextInsurance = [...insurance]
+    .filter((bill) => bill.dueAt)
+    .sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? ''))[0]
+  const upcoming = [...snapshot.bills]
+    .filter((bill) => bill.dueAt || statusTone(bill.status) === 'warn')
+    .sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? ''))
+    .map((bill) => ({
+      id: bill.id,
+      date: bill.dueAt ? formatDay(bill.dueAt) : '—',
+      description: bill.name,
+      account: accountName(snapshot, bill.paidFromId),
+      amount: formatUsd(bill.amount),
+    }))
+  return {
+    utilitiesMonthly: formatUsd(sum(utilities.map((bill) => bill.amount))),
+    insuranceMonthly: formatUsd(sum(insurance.map((bill) => bill.amount))),
+    dueSoon: formatUsd(sum(dueSoon.map((bill) => bill.amount))),
+    dueSoonHint: dueSoon.length ? countLabel(dueSoon.length, 'bill') : 'Nothing due in the next 10 days',
+    nextRenewal: nextInsurance?.dueAt ? formatDay(nextInsurance.dueAt) : '—',
+    nextRenewalHint: nextInsurance ? nextInsurance.name : 'No insurance renewals recorded',
+    electricitySeries: [],
+    upcoming,
+  }
+}
+
+export function applyCreateAccount(snapshot: LedgerSnapshot, input: CreateAccountInput): LedgerAccount {
+  const now = nowIso()
+  const account: LedgerAccount = {
+    id: newLedgerId(),
+    name: input.name.trim(),
+    kind: input.kind,
+    subtype: (input.subtype ?? DEFAULT_SUBTYPE[input.kind]).trim() || DEFAULT_SUBTYPE[input.kind],
+    mask: input.mask?.trim() || null,
+    balance: parseMoneyInput(input.balance),
+    currency: 'USD',
+    createdAt: now,
+    updatedAt: now,
+  }
+  snapshot.accounts.push(account)
+  return account
+}
+
+export function applyUpdateAccount(account: LedgerAccount, input: UpdateAccountInput): LedgerAccount {
+  if (input.name !== undefined) account.name = input.name.trim()
+  if (input.subtype !== undefined) account.subtype = input.subtype.trim() || account.subtype
+  if (input.mask !== undefined) account.mask = input.mask?.trim() || null
+  if (input.balance !== undefined) account.balance = parseMoneyInput(input.balance)
+  account.updatedAt = nowIso()
+  return account
+}
+
+export function applyCreateTransaction(snapshot: LedgerSnapshot, input: CreateTransactionInput): LedgerTransaction {
+  const posted = parseDateInput(input.postedAt) ?? new Date()
+  const row: LedgerTransaction = {
+    id: newLedgerId(),
+    accountId: input.accountId,
+    postedAt: posted.toISOString(),
+    description: input.description.trim(),
+    amount: parseMoneyInput(input.amount),
+    category: input.category?.trim() || null,
+    status: input.status?.trim() || 'Posted',
+    createdAt: nowIso(),
+  }
+  snapshot.transactions.push(row)
+  return row
+}
+
+export function applyCreateHolding(snapshot: LedgerSnapshot, input: CreateHoldingInput): LedgerHolding {
+  const now = nowIso()
+  const row: LedgerHolding = {
+    id: newLedgerId(),
+    accountId: input.accountId,
+    name: input.name.trim(),
+    symbol: input.symbol?.trim() || null,
+    quantity: parseMoneyInput(input.quantity, 8),
+    value: parseMoneyInput(input.value),
+    costBasis: parseMoneyInput(input.costBasis ?? input.value),
+    createdAt: now,
+    updatedAt: now,
+  }
+  snapshot.holdings.push(row)
+  return row
+}
+
+export function applyCreateBill(snapshot: LedgerSnapshot, input: CreateBillInput): LedgerBill {
+  const now = nowIso()
+  const due = parseDateInput(input.dueAt)
+  const row: LedgerBill = {
+    id: newLedgerId(),
+    name: input.name.trim(),
+    kind: input.kind,
+    amount: parseMoneyInput(input.amount),
+    dueAt: due ? due.toISOString() : null,
+    paidFromId: input.paidFromId?.trim() || null,
+    status: input.status?.trim() || 'Upcoming',
+    createdAt: now,
+    updatedAt: now,
+  }
+  snapshot.bills.push(row)
+  return row
+}
+
+export function applyUpdateBill(bill: LedgerBill, input: UpdateBillInput): LedgerBill {
+  if (input.name !== undefined) bill.name = input.name.trim()
+  if (input.amount !== undefined) bill.amount = parseMoneyInput(input.amount)
+  if (input.dueAt !== undefined) {
+    const due = parseDateInput(input.dueAt ?? undefined)
+    bill.dueAt = due ? due.toISOString() : null
+  }
+  if (input.paidFromId !== undefined) bill.paidFromId = input.paidFromId?.trim() || null
+  if (input.status !== undefined) bill.status = input.status.trim() || bill.status
+  bill.updatedAt = nowIso()
+  return bill
+}

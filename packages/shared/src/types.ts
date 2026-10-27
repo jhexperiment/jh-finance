@@ -142,6 +142,7 @@ export interface Holding {
 export interface InvestmentAccount extends AccountSummary {
   kind: 'investment' | 'crypto'
   value: string
+  share?: string
   dayChange: string
   dayTone: Tone
   totalGain: string
@@ -196,6 +197,7 @@ export interface OverviewSnapshot {
   series: SeriesPoint[]
   seriesLabels: [string, string, string]
   cash: string
+  cashHint: string
   cardBalances: string
   cardHint: string
   retirement: string

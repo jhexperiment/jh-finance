@@ -1,0 +1,19 @@
+{
+  "name": "scripts",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "type": "module",
+  "scripts": {
+    "pdf:cli": "tsx pdf/cli/pdf.ts"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "pdfjs-dist": "^6.4.299",
+    "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

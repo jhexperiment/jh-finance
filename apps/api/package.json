@@ -11,11 +11,12 @@
     "dev:api:processor:local": "set -a && source .env.local && set +a && nest start processor --watch",
     "prisma:generate": "prisma generate",
     "prisma:migrate:local": "set -a && source .env.local && set +a && prisma migrate dev",
-    "prisma:seed:local": "set -a && source .env.local && set +a && tsx prisma/seed.ts",
+    "prisma:reset:local": "set -a && source .env.local && set +a && prisma migrate reset --force",
     "lint": "eslint .",
     "test": "jest"
   },
   "dependencies": {
+    "@fastify/multipart": "^10.1.6",
     "@fastify/static": "^10.1.2",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.1.9",
@@ -29,6 +30,7 @@
     "dotenv": "^17.2.3",
     "fastify": "^5.6.1",
     "ioredis": "^5.8.1",
+    "pdfjs-dist": "^6.4.299",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -46,11 +48,10 @@
     "eslint": "^9.38.0",
     "jest": "^30.2.0",
     "prisma": "7.7.0",
-    "ts-loader": "^9.5.4",
     "ts-jest": "^29.4.5",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.1"
   }

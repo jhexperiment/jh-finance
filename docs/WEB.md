@@ -139,7 +139,7 @@ Web does **not** talk to Prisma. Types live in `packages/shared/src/types.ts`. D
 | `Bill` | Utilities + insurance DTOs | None |
 | `Document` / import | ❌ | Not in schema |
 
-No membership or `workspaceId` filter. Shared package is isomorphic (API seed also imports fixtures). There is no mobile copy of these types.
+No membership or `workspaceId` filter. Shared package is isomorphic. There is no mobile copy of these types.
 
 ### Authentication
 
@@ -248,7 +248,6 @@ cp .env.example .env.local          # repo root; DATABASE_URL etc. — do not co
 docker compose up -d postgres dragonfly
 pnpm prisma:generate
 pnpm prisma:migrate:local
-pnpm prisma:seed:local
 pnpm dev:api:client:local           # :3000
 ```
 
