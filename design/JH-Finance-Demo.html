@@ -473,12 +473,16 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
   function invForm(i) {
     var edit = !!i;
     var kind = edit ? i.kind : "Investment";
-    var types = kind === "Crypto" ? ["Crypto","Exchange","Wallet"] : ["Brokerage","Retirement","401(k)","IRA"];
+    var types = kind === "Crypto" ? ["Wallet","Exchange"] : ["Brokerage","Retirement","401(k)","IRA"];
+    var cur = edit ? i.type : "";
+    var typeOpts = types.slice();
+    if (edit && cur && cur !== "Crypto" && typeOpts.indexOf(cur) < 0) typeOpts.push(cur);
+    var typeVal = edit ? (cur === "Crypto" ? types[0] : cur) : (kind === "Crypto" ? "Wallet" : "Brokerage");
     return '<form class="card form" data-form="' + (edit ? "inv-edit" : "inv-new") + '"' + (edit ? ' data-id="' + i.id + '"' : "") + '>' +
       '<div class="fgrid">' +
       field("name", "Name", { value: edit ? i.name : "", ph: "Brokerage", req: true }) +
       field("kind", "Kind", { options: ["Investment","Crypto"], value: kind, disabled: edit, hint: edit ? "Kind is set when the account is created." : "" }) +
-      field("type", "Type", { options: edit ? types : ["Brokerage","Retirement","401(k)","IRA"], value: edit ? i.type : "Brokerage", hint: "Types follow the kind: Investment or Crypto." }) +
+      field("type", "Type", { options: typeOpts, value: typeVal, hint: "Types follow the kind: Investment or Crypto." }) +
       (edit ? "" : cryptoBlock()) +
       '</div><p class="err"></p><div class="frow">' + btn("Cancel", edit ? "inv:" + i.id : "invest") +
       '<button class="btn p" type="submit">' + (edit ? "Save" : "Add account") + '</button></div></form>' +
@@ -767,7 +771,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     syncCrypto(el.form);
     var t = el.form.querySelector('[name="type"]');
     if (!t) return;
-    var opts = el.value === "Crypto" ? ["Crypto", "Exchange", "Wallet"] : ["Brokerage", "Retirement", "401(k)", "IRA"];
+    var opts = el.value === "Crypto" ? ["Wallet", "Exchange"] : ["Brokerage", "Retirement", "401(k)", "IRA"];
     t.innerHTML = opts.map(function (x) { return "<option>" + esc(x) + "</option>"; }).join("");
   });
   document.addEventListener("submit", function (e) {
