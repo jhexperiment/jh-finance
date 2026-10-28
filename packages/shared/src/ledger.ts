@@ -260,6 +260,7 @@ function formatDay(iso: string): string {
   return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    ...(year === new Date().getFullYear() ? {} : { year: 'numeric' }),
     timeZone: 'UTC',
   })
 }
@@ -303,6 +304,56 @@ function formatActivityAmount(row: LedgerTransaction): string {
   if (amount.isNegative()) return `-${body} ${row.asset}`
   if (amount.isPositive()) return `+${body} ${row.asset}`
   return `0 ${row.asset}`
+}
+
+function chainAssetTotals(rows: LedgerTransaction[]): { asset: string; amount: ReturnType<typeof money> }[] {
+  const byAsset = new Map<string, ReturnType<typeof money>>()
+  for (const row of rows) {
+    const asset = row.asset?.trim()
+    if (!asset) continue
+    byAsset.set(asset, (byAsset.get(asset) ?? money(0)).plus(row.amount))
+  }
+  return [...byAsset.entries()]
+    .map(([asset, amount]) => ({ asset, amount }))
+    .sort((left, right) => right.amount.abs().comparedTo(left.amount.abs()))
+}
+
+function formatNativeTotal(rows: { asset: string; amount: ReturnType<typeof money> }[]): string {
+  const visible = rows.filter((row) => !row.amount.isZero())
+  if (visible.length > 0) {
+    return visible.map((row) => `${row.amount.toString()} ${row.asset}`).join(' · ')
+  }
+  if (rows.length > 0) return `0 ${rows[0].asset}`
+  return '0'
+}
+
+function holdingQuantityTotal(rows: LedgerHolding[]): string | null {
+  if (rows.length === 0) return null
+  return rows
+    .map((row) => {
+      const unit = row.symbol?.trim() || row.name
+      return `${money(row.quantity).toString()} ${unit}`
+    })
+    .join(' · ')
+}
+
+function accountHoldingCount(txs: LedgerTransaction[], holdings: LedgerHolding[]): number {
+  const chain = chainAssetTotals(txs).filter((row) => !row.amount.isZero())
+  if (chain.length > 0) return chain.length
+  return holdings.length
+}
+
+function accountHoldingTotal(
+  account: LedgerAccount,
+  txs: LedgerTransaction[],
+  holdings: LedgerHolding[],
+): string | null {
+  const chain = chainAssetTotals(txs)
+  if (chain.length > 0) return formatNativeTotal(chain)
+  const lots = holdingQuantityTotal(holdings)
+  if (lots) return lots
+  if (account.kind === 'crypto') return '0'
+  return null
 }
 
 function accountName(snapshot: LedgerSnapshot, id: string | null | undefined): string {
@@ -492,14 +543,20 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
   const cost = holdingRows.length > 0 ? sum(holdingRows.map((row) => row.costBasis)) : money(0)
   const gain = holdingRows.length > 0 ? value.minus(cost) : money(0)
   const holdings = holdingRows.map((row) => projectHolding(row, account, value.toNumber()))
-  const activity = txnsFor(snapshot, account.id).map((row) => toActivityRow(row, account.name))
+  const txRows = txnsFor(snapshot, account.id)
+  const activity = txRows.map((row) => toActivityRow(row, account.name))
+  const chainTotals = chainAssetTotals(txRows)
+  const chainHeld = chainTotals.filter((row) => !row.amount.isZero())
+  const holdingTotal = accountHoldingTotal(account, txRows, holdingRows)
+  const holdingCount = accountHoldingCount(txRows, holdingRows)
   const chainAddresses = chainAddressesFor(snapshot, account.id)
   const mix = slicesFrom(holdingRows.map((row) => ({ label: row.name, value: money(row.value).toNumber() })))
   return {
     ...toAccountSummary(account),
     kind: account.kind === 'crypto' ? 'crypto' : 'investment',
-    extra: countLabel(holdingRows.length, 'holding'),
+    extra: countLabel(holdingCount, 'holding'),
     value: formatUsd(value),
+    holdingTotal: holdingTotal ?? formatUsd(value),
     share: undefined,
     dayChange: '—',
     dayTone: 'muted',
@@ -507,20 +564,26 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
     totalGainTone: holdingRows.length > 0 ? gainTone(gain.toString()) : 'muted',
     costBasis: holdingRows.length > 0 ? formatUsd(cost) : '—',
     metrics: [
-      { label: 'Value', value: formatUsd(value), hint: account.subtype },
+      { label: 'Value', value: holdingTotal ?? formatUsd(value), hint: account.subtype },
       {
         label: 'Total gain',
         value: holdingRows.length > 0 ? formatUsd(gain, { sign: 'always' }) : '—',
         hint: holdingRows.length > 0 ? `Cost basis ${formatUsd(cost)}` : 'Add holdings to track gain',
         tone: holdingRows.length > 0 ? gainTone(gain.toString()) : 'muted',
       },
-      { label: 'Holdings', value: String(holdingRows.length), hint: holdingRows.length ? 'Manual lots' : 'None yet' },
+      {
+        label: 'Holdings',
+        value: String(holdingCount),
+        hint: holdingCount ? (chainHeld.length ? 'From recorded activity' : 'Manual lots') : 'None yet',
+      },
       { label: 'Activity', value: String(activity.length), hint: activity.length ? 'Recorded lines' : 'None yet' },
     ],
     series: [{ label: 'Now', value: value.toNumber() }],
-    seriesCaption: holdingRows.length
-      ? 'Value from holdings. Prices are not live.'
-      : 'No holdings yet. Add one or upload a statement later.',
+    seriesCaption: chainTotals.length
+      ? 'Native total from recorded activity. Not USD.'
+      : holdingRows.length
+        ? 'Value from holdings. Prices are not live.'
+        : 'No holdings yet. Add one or upload a statement later.',
     details: [
       { label: 'Account type', value: account.subtype },
       { label: 'Kind', value: account.kind === 'crypto' ? 'Crypto' : 'Investment' },

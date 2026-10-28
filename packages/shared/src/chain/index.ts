@@ -1,5 +1,5 @@
 import { fetchBnbTransactions, fetchEthTransactions } from './evm'
-import { fetchEsploraTransactions } from './esplora'
+import { fetchEsploraTransactions, fetchLitecoinTransactions } from './esplora'
 import { resetIndexerPace } from './http'
 import { IndexerError, isChain, type Chain, type ChainTx, type IndexerOptions } from './types'
 import { fetchXlmTransactions } from './xlm'
@@ -20,7 +20,8 @@ export {
   type FetchLike,
   type IndexerOptions,
 } from './types'
-export { ESPLORA_URLS, fetchEsploraTransactions } from './esplora'
+export { ESPLORA_URLS, fetchEsploraTransactions, fetchLitecoinTransactions } from './esplora'
+export { BLOCKBOOK_LTC_URL, fetchBlockbookTransactions } from './blockbook'
 export { ETH_BLOCKSCOUT_URL, ETHERSCAN_V2_URL, fetchBnbTransactions, fetchEthTransactions } from './evm'
 export { XRPL_URL, fetchXrpTransactions } from './xrp'
 export {
@@ -84,8 +85,9 @@ export async function fetchAddressTransactions(
   }
   switch (chain) {
     case 'btc':
-    case 'ltc':
       return fetchEsploraTransactions(chain, address, options)
+    case 'ltc':
+      return fetchLitecoinTransactions(address, options)
     case 'eth':
       return fetchEthTransactions(address, options)
     case 'bnb':

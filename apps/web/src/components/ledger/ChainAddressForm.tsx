@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useMutationState } from '@tanstack/react-query'
 import { CHAINS, type Chain } from 'shared'
 import { api } from '@/api/client'
 import { Card } from '@/components/ui/Card'
@@ -7,6 +7,10 @@ import { FormError, FormField, SelectInput, TextInput } from '@/components/ui/Fo
 import { GhostButton, PrimaryButton } from '@/components/ui/PageHeader'
 import { mutationError, useInvalidateWorkspace } from '@/lib/workspace'
 import { RemoveButton } from './ActivityForm'
+
+function chainAddressSyncKey(accountId: string) {
+  return ['chain-address-sync', accountId] as const
+}
 
 const chainLabel: Record<Chain, string> = {
   btc: 'Bitcoin',
@@ -40,9 +44,15 @@ export function ChainAddressForm({
     mutationFn: (addressId: string) => api.deleteChainAddress(accountId, addressId),
     onSuccess: () => invalidate(),
   })
+  const syncKey = chainAddressSyncKey(accountId)
   const sync = useMutation({
+    mutationKey: syncKey,
     mutationFn: (addressId: string) => api.syncChainAddress(accountId, addressId),
     onSuccess: () => invalidate(),
+  })
+  const pendingSyncIds = useMutationState({
+    filters: { mutationKey: syncKey, status: 'pending' },
+    select: (mutation) => mutation.state.variables as string | undefined,
   })
 
   return (
@@ -68,10 +78,10 @@ export function ChainAddressForm({
               <Cell align="right">
                 <span className="inline-flex items-center gap-3">
                   <GhostButton
-                    disabled={sync.isPending}
+                    disabled={pendingSyncIds.includes(row.id)}
                     onClick={() => sync.mutate(row.id)}
                   >
-                    {sync.isPending && sync.variables === row.id ? 'Fetching…' : 'Fetch transactions'}
+                    {pendingSyncIds.includes(row.id) ? 'Fetching…' : 'Fetch transactions'}
                   </GhostButton>
                   <RemoveButton
                     onRemove={() => remove.mutate(row.id)}

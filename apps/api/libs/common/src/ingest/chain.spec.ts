@@ -329,6 +329,44 @@ describe('fetchAddressTransactions', () => {
     });
   });
 
+  it('falls back to Litecoin blockbook after esplora 504s', async () => {
+    const address = 'LfMjNgBL1tSMgZHtwv8ZunZb4uQNQQkKLF';
+    const rows = await fetchAddressTransactions({
+      chain: 'ltc',
+      address,
+      fetch: mockFetch((url) => {
+        if (url.includes('litecoinspace.org')) {
+          return new Response('', { status: 504, headers: { 'Retry-After': '30' } });
+        }
+        if (url.includes('blockbook.ltc.zelcore.io') && url.includes('details=txs')) {
+          return {
+            page: 1,
+            totalPages: 1,
+            transactions: [
+              {
+                txid: 'ltc-in',
+                blockTime: 1565405477,
+                confirmations: 12,
+                vin: [{ addresses: ['Lother'], value: '150000000' }],
+                vout: [{ addresses: [address], value: '150000000' }],
+              },
+            ],
+          };
+        }
+        return { txs: 1, transactions: [] };
+      }),
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      chain: 'ltc',
+      txid: 'ltc-in',
+      asset: 'LTC',
+      amount: '1.5',
+      direction: 'in',
+      to: address,
+    });
+  });
+
   it('retries Esplora 429s then continues', async () => {
     const address = '1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv'
     let hits = 0
@@ -423,6 +461,8 @@ describe('commitChainTransactions', () => {
     const view = projectInvestment(account, snapshot);
     expect(view.activity[0]?.amount).toBe('+0.00001149 BTC');
     expect(view.chainAddresses).toHaveLength(1);
+    expect(view.extra).toBe('1 holding');
+    expect(view.holdingTotal).toBe('0.00001149 BTC');
   });
 });
 

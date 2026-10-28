@@ -1,6 +1,7 @@
 import { money } from '../money'
+import { fetchBlockbookTransactions } from './blockbook'
 import { getJson, indexerLog, sleep } from './http'
-import type { Chain, ChainTx, IndexerOptions } from './types'
+import { IndexerError, type Chain, type ChainTx, type IndexerOptions } from './types'
 import { directionFromNet, fromBaseUnits, signedAmount } from './units'
 
 export const ESPLORA_URLS = {
@@ -31,6 +32,20 @@ interface EsploraTx {
 
 const PAGE_SIZE = 25
 const MAX_PAGES = 10_000
+
+export async function fetchLitecoinTransactions(
+  address: string,
+  options: IndexerOptions = {},
+): Promise<ChainTx[]> {
+  if (options.baseUrl) return fetchEsploraTransactions('ltc', address, options)
+  try {
+    return await fetchEsploraTransactions('ltc', address, options)
+  } catch (error) {
+    const message = error instanceof IndexerError || error instanceof Error ? error.message : 'failed'
+    indexerLog(options, `litecoinspace ${message}; falling back to blockbook`)
+    return fetchBlockbookTransactions('ltc', address, options)
+  }
+}
 
 export async function fetchEsploraTransactions(
   chain: 'btc' | 'ltc',

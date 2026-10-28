@@ -149,6 +149,7 @@ export interface Holding {
 export interface InvestmentAccount extends AccountSummary {
   kind: 'investment' | 'crypto'
   value: string
+  holdingTotal?: string
   share?: string
   dayChange: string
   dayTone: Tone

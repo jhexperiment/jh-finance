@@ -2,7 +2,10 @@ import { IndexerError, type FetchLike } from './types'
 
 export const INDEXER_USER_AGENT = 'jh-finance'
 const RETRY_STATUSES = new Set([429, 502, 503, 504])
+const GATEWAY_STATUSES = new Set([502, 503, 504])
 const MAX_RETRIES = 8
+const MAX_GATEWAY_RETRIES = 1
+const REQUEST_TIMEOUT_MS = 8_000
 const MIN_GAP_MS = 1_200
 const MAX_GAP_MS = 8_000
 
@@ -68,20 +71,25 @@ async function requestJson<T>(
         method: options.method,
         body: options.body,
         headers,
+        signal: realFetch ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined,
       })
     } catch (error) {
-      if (attempt >= MAX_RETRIES) {
+      const timeout = isTimeoutError(error)
+      const retries = timeout ? MAX_GATEWAY_RETRIES : MAX_RETRIES
+      if (attempt >= retries) {
         const message = error instanceof Error ? error.message : 'fetch failed'
         throw new IndexerError(`Indexer request failed (${message})`)
       }
-      const wait = backoffMs(attempt)
+      const wait = timeout ? gatewayBackoffMs(attempt) : backoffMs(attempt)
       if (realFetch) slowDown(wait)
-      indexerLog(options, `retry network in ${seconds(wait)}s ${urlPath(url)}`)
-      await sleep(wait)
+      indexerLog(options, `retry ${timeout ? 'timeout' : 'network'} in ${seconds(wait)}s ${urlPath(url)}`)
+      if (realFetch) await sleep(wait)
       continue
     }
     if (response.ok) return (await response.json()) as T
-    const retryable = RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES
+    const gateway = GATEWAY_STATUSES.has(response.status)
+    const retries = gateway ? MAX_GATEWAY_RETRIES : MAX_RETRIES
+    const retryable = RETRY_STATUSES.has(response.status) && attempt < retries
     await response.arrayBuffer().catch(() => undefined)
     if (!retryable) {
       throw new IndexerError(`Indexer request failed (${response.status})`, response.status)
@@ -89,7 +97,7 @@ async function requestJson<T>(
     const wait = retryDelayMs(response, attempt)
     if (realFetch) slowDown(wait)
     indexerLog(options, `retry ${response.status} in ${seconds(wait)}s ${urlPath(url)}`)
-    await sleep(wait)
+    if (realFetch) await sleep(wait)
   }
   throw new IndexerError('Indexer request failed', 429)
 }
@@ -122,6 +130,7 @@ function urlPath(url: string): string {
 }
 
 function retryDelayMs(response: Response, attempt: number): number {
+  if (GATEWAY_STATUSES.has(response.status)) return gatewayBackoffMs(attempt)
   const header = response.headers.get('Retry-After') ?? response.headers.get('retry-after')
   if (header) {
     const value = Number(header)
@@ -132,4 +141,15 @@ function retryDelayMs(response: Response, attempt: number): number {
 
 function backoffMs(attempt: number): number {
   return Math.min(2_000 * 2 ** attempt, 30_000)
+}
+
+function gatewayBackoffMs(attempt: number): number {
+  return Math.min(2_000 * 2 ** attempt, 8_000)
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const name = 'name' in error ? String(error.name) : ''
+  const message = 'message' in error ? String(error.message) : ''
+  return name === 'TimeoutError' || name === 'AbortError' || /aborted|timeout/i.test(message)
 }

@@ -1,5 +1,6 @@
 import { chainTxExternalId, shortenAddress } from './commit'
-import { ESPLORA_URLS, fetchEsploraTransactions } from './esplora'
+import { fetchBlockbookTxCount } from './blockbook'
+import { ESPLORA_URLS, fetchEsploraTransactions, fetchLitecoinTransactions } from './esplora'
 import { getJson, indexerLog, sleep } from './http'
 import { IndexerError, type ChainTx, type IndexerOptions } from './types'
 import {
@@ -55,7 +56,10 @@ export async function fetchExtendedKeyTransactions(
       used += 1
       indexerLog(options, `${branch}/${index} ${shortenAddress(address)} ${txCount} txs`)
       if (delay > 0) await sleep(delay)
-      const txs = await fetchEsploraTransactions(chain, address, options)
+      const txs =
+        chain === 'ltc' && !options.baseUrl
+          ? await fetchLitecoinTransactions(address, options)
+          : await fetchEsploraTransactions(chain, address, options)
       for (const tx of txs) {
         const id = chainTxExternalId(tx)
         if (seen.has(id)) continue
@@ -104,9 +108,16 @@ async function fetchAddressTxCount(
   options: IndexerOptions,
 ): Promise<number> {
   const base = options.baseUrl ?? ESPLORA_URLS[chain]
-  const body = await getJson<{
-    chain_stats?: { tx_count?: number }
-    mempool_stats?: { tx_count?: number }
-  }>(`${base}/address/${encodeURIComponent(address)}`, options)
-  return (body.chain_stats?.tx_count ?? 0) + (body.mempool_stats?.tx_count ?? 0)
+  try {
+    const body = await getJson<{
+      chain_stats?: { tx_count?: number }
+      mempool_stats?: { tx_count?: number }
+    }>(`${base}/address/${encodeURIComponent(address)}`, options)
+    return (body.chain_stats?.tx_count ?? 0) + (body.mempool_stats?.tx_count ?? 0)
+  } catch (error) {
+    if (chain !== 'ltc' || options.baseUrl) throw error
+    const message = error instanceof Error ? error.message : 'failed'
+    indexerLog(options, `litecoinspace ${message}; falling back to blockbook`)
+    return fetchBlockbookTxCount(address, options)
+  }
 }

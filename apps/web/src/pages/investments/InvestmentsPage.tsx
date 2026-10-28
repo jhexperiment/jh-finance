@@ -81,7 +81,7 @@ export function InvestmentsPage() {
                   <Cell>{account.typeLabel}</Cell>
                   <Cell>{account.extra}</Cell>
                   <Cell align="right" className="num">
-                    {account.value}
+                    {account.holdingTotal ?? account.value}
                   </Cell>
                   <Cell align="right" className="num">
                     {account.share ?? '—'}
