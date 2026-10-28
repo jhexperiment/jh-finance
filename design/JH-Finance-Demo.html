@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JH Finance · Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{--canvas:#faf9f5;--chip:#f5f4ef;--ink:#1a1d21;--muted:#5b6270;--line:#e3e1d9;--accent:#0e6b63;--gain:#13794a;--warn:#b54708;--loss:#b42318;--warn-bg:#fff6e8;--loss-bg:#fdf0ee;--gain-bg:#eef7f2;--blue:#2b5ba8;--amber:#b7791f;--plum:#7a4e9b;--bar:#b9bec8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:14px/1.4 Inter,system-ui,sans-serif}
+button,input,select{font:inherit;font-size:14px}
+a{color:inherit;text-decoration:none;cursor:pointer}
+.wrap{max-width:1200px;margin:0 auto;padding:32px 32px 48px}
+header{display:flex;align-items:center;gap:32px;padding-bottom:24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent)}
+nav{display:flex;gap:22px;color:var(--muted);flex-wrap:wrap}
+nav a{padding-bottom:6px}
+nav a[aria-current]{color:var(--ink);font-weight:600;border-bottom:2px solid var(--accent)}
+.right{margin-left:auto;display:flex;gap:14px;align-items:center}
+.search{width:260px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:13px;font-weight:600}
+.crumb{margin:24px 0 0;font-size:13px;color:var(--muted)}
+.crumb a{color:var(--accent);font-weight:600}
+.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:8px}
+.phead.top{margin-top:28px}
+h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.01em}
+.sub{margin:6px 0 0;color:var(--muted)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.btn:disabled{opacity:.6;cursor:default}
+.rm{background:none;border:0;padding:0;color:var(--loss);font-size:13px;cursor:pointer}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;min-width:0}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:24px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;margin-top:24px;align-items:start}
+.stack{margin-top:24px}
+.lbl{font-size:13px;color:var(--muted)}
+.val{font-size:24px;font-weight:700;margin-top:8px;font-variant-numeric:tabular-nums}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.hero{font-size:44px;font-weight:700;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+h2{margin:0;font-size:16px;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th{padding:10px 0;text-align:left;font-weight:500;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+td{padding:12px 0;border-top:1px solid var(--line);vertical-align:middle}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.g{color:var(--gain)} .l{color:var(--loss)} .w{color:var(--warn)}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;background:var(--chip);color:var(--muted)}
+.pill.g{background:var(--gain-bg);color:var(--gain)} .pill.w{background:var(--warn-bg);color:var(--warn)} .pill.l{background:var(--loss-bg);color:var(--loss)}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.kv>span:first-child{color:var(--muted)}
+.kv>span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.field{display:block;min-width:0}
+.field>span{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+.in{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);line-height:1.4}
+select.in{-webkit-appearance:none;-moz-appearance:none;appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%235b6270' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;background-size:12px 8px;cursor:pointer}
+.form{max-width:576px;margin-top:24px}
+.fgrid{display:grid;gap:18px}
+.inline{display:grid;gap:8px;align-items:end;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.inline .field>span{font-size:13px}
+.frow{display:flex;gap:8px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
+.err{color:var(--loss);font-size:14px;margin:12px 0 0;min-height:0}
+.err:empty{display:none}
+.ok{color:var(--muted);font-size:14px;margin:12px 0 0}
+.ok:empty{display:none}
+.empty{padding:40px 24px;text-align:center}
+.empty p{color:var(--muted);max-width:480px;margin:8px auto 0}
+.bar{height:8px;background:var(--chip);border-radius:999px;margin-top:6px;overflow:hidden}
+.bar>span{display:block;height:8px;border-radius:999px}
+ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-size:14px}
+.bars{display:flex;align-items:flex-end;gap:12px;height:160px;margin-top:20px;border-bottom:1px solid var(--line)}
+.bars>span{flex:1;border-radius:6px 6px 0 0;background:var(--bar)}
+.bars>span.last{background:var(--accent)}
+.labels{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
+.note{margin:14px 0 0;font-size:13px;color:var(--muted);line-height:1.5}
+.addr{word-break:break-all}
+.confirm{border-color:var(--loss)}
+.flex{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+.footer{margin-top:32px;font-size:13px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+@media (max-width:900px){.grid4,.grid3,.grid2{grid-template-columns:1fr}.search{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="mark"></span>JH Finance</div>
+    <nav id="nav"></nav>
+    <div class="right">
+      <input class="search" placeholder="Search transactions, holdings" aria-label="Search" id="search">
+      <div class="avatar" aria-hidden="true">AM</div>
+    </div>
+  </header>
+  <main id="app"></main>
+  <div class="footer">
+    <span>Demo app. Data is kept in this browser only. Fetching addresses and reading statements are simulated. Nothing moves money.</span>
+    <button class="btn" type="button" data-act="reset">Reset demo data</button>
+    <button class="btn" type="button" data-act="clear">Clear all</button>
+  </div>
+</div>
+<input type="file" id="pdf" accept="application/pdf" hidden>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- helpers ---------- */
+  var TODAY = "Oct 27, 2026";
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var SYM = { "Bitcoin":"BTC", "Litecoin":"LTC", "Ethereum":"ETH", "BNB Chain":"BNB", "XRP":"XRP", "Stellar":"XLM" };
+  var CHAINS = Object.keys(SYM);
+  var BILL_STATUS = ["Upcoming","Due","Paid","Scheduled","Autopay"];
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
+  function money(n) { return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function signed(n) { return (n >= 0 ? "+" : "") + money(n); }
+  function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function uid() { return "n" + Math.random().toString(36).slice(2, 9); }
+  function short(a) { return a.length > 14 ? a.slice(0, 6) + "…" + a.slice(-4) : a; }
+  function isoToShort(v) { var p = String(v).split("-"); return MONTHS[+p[1] - 1] + " " + +p[2]; }
+  function num(v) { var n = Number(String(v == null ? "" : v).replace(/[$,\s]/g, "")); return isFinite(n) && String(v).trim() !== "" ? n : NaN; }
+
+  /* ---------- data ---------- */
+  function seed() {
+    function tx(date, desc, cat, amt, extra) { var t = { id: uid(), date: date, desc: desc, cat: cat || "", amt: amt }; if (extra) for (var k in extra) t[k] = extra[k]; return t; }
+    return {
+      cards: [
+        { id:"c1", name:"Platinum", type:"Credit card", last4:"4821", balance:2318.44, due:"Nov 12", limit:12000, apr:"23.99%", tx:[
+          tx("Oct 23","Electronics store","Shopping",-489,{flag:true}), tx("Oct 19","Hotel booking","Travel",-312), tx("Oct 14","Restaurant group","Dining",-86.5) ] },
+        { id:"c2", name:"Everyday", type:"Credit card", last4:"0937", balance:1206.8, due:"Nov 9", limit:6500, apr:"21.49%", tx:[
+          tx("Oct 24","Grocery market","Groceries",-86.42), tx("Oct 22","Coffee roasters","Dining",-6.75), tx("Oct 21","Streaming service","Subscriptions",-17.99) ] },
+        { id:"c3", name:"Travel", type:"Credit card", last4:"2254", balance:1002.13, due:"Nov 10", limit:9000, apr:"24.24%", tx:[
+          tx("Oct 19","Airline","Travel",-318.6) ] },
+        { id:"c4", name:"Store", type:"Store card", last4:"7710", balance:587, due:"Nov 6", limit:3000, apr:"29.99%", tx:[
+          tx("Oct 20","Online retailer refund","Shopping",42.1), tx("Oct 18","Water and sewer, autopay","Bills",-64.2) ] }
+      ],
+      banks: [
+        { id:"b1", name:"Checking", type:"Checking", last4:"0182", balance:18904.22, tx:[
+          tx("Oct 24","Payroll deposit","Income",3160), tx("Oct 22","Transfer to Brokerage A","Investing",-1200), tx("Oct 20","Card payment, Everyday 0937","Card payment",-640) ] },
+        { id:"b2", name:"Joint checking", type:"Joint checking", last4:"3390", balance:9220, tx:[
+          tx("Oct 23","Transfer from partner","Contribution",1500), tx("Oct 16","Household supplies","Household",-84.3) ] },
+        { id:"b3", name:"Savings", type:"Savings", last4:"6617", balance:11500, tx:[
+          tx("Oct 10","Auto-transfer from Checking","Transfer",500) ] },
+        { id:"b4", name:"High-yield savings", type:"HYSA", last4:"1158", balance:2581.96, tx:[
+          tx("Sep 15","Monthly sweep from Checking","Transfer",100) ] }
+      ],
+      invest: [
+        { id:"i1", name:"401(k), employer plan", kind:"Investment", type:"Retirement", tx:[ tx("Oct 15","Contribution and match","Contribution",1008.33) ], watch:[],
+          holdings:[ hold("Target 2060 fund","","",71420,""), hold("International index","","",28600,""), hold("Bond index","","",21400,""), hold("Stable value","","",15154.45,"") ] },
+        { id:"i2", name:"Brokerage A", kind:"Investment", type:"Brokerage", watch:[], tx:[ tx("Oct 22","Buy, Total US stock index ETF","Buy",-1200), tx("Sep 28","Dividend, reinvested","Dividend",141.2) ],
+          holdings:[ hold("Total US stock index ETF","","84.59",34880.15,28177.25) ] },
+        { id:"i3", name:"Brokerage B, company shares", kind:"Investment", type:"Brokerage", watch:[], tx:[ tx("Aug 15","RSU vest, 14 shares, 40% sold to cover taxes","RSU",2179.2) ],
+          holdings:[ hold("Company shares","","42",16450,11332) ] },
+        { id:"i4", name:"Cold wallet", kind:"Crypto", type:"Wallet", tx:[ tx("Oct 2","Received from exchange account","Transfer",3540) ],
+          watch:[ { id:"w1", chain:"Bitcoin", addr:"bc1q7x2mq4r8f0kz3w6e5n2p1d9c7v0t8s9c4e", last:TODAY } ],
+          holdings:[ hold("Bitcoin","BTC","0.142",12930,14134.8) ] },
+        { id:"i5", name:"Exchange account", kind:"Crypto", type:"Exchange", tx:[ tx("Sep 3","Buy, funded by bank transfer","Buy",850) ],
+          watch:[ { id:"w2", chain:"Ethereum", addr:"0x4b1f9a2c7e8d03f5a6b9c1e2d4f7a0b3c8e5d9f1", last:"Oct 26, 2026" },
+                  { id:"w3", chain:"Bitcoin", addr:"3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy", last:null } ],
+          holdings:[ hold("Ether","ETH","2.6",4352.1,5052.1) ] }
+      ],
+      bills: [
+        { id:"l1", name:"Electricity", kind:"Utility", amount:118.4, due:"Oct 31", status:"Upcoming", paidFrom:"Checking 0182" },
+        { id:"l2", name:"Internet", kind:"Utility", amount:79.99, due:"Oct 30", status:"Scheduled", paidFrom:"Everyday 0937" },
+        { id:"l3", name:"Water and sewer", kind:"Utility", amount:64.2, due:"Nov 2", status:"Autopay", paidFrom:"Store 7710" },
+        { id:"l4", name:"Natural gas", kind:"Utility", amount:52.1, due:"Nov 9", status:"Scheduled", paidFrom:"Checking 0182" },
+        { id:"l5", name:"Auto insurance", kind:"Insurance", amount:138, due:"Oct 28", status:"Upcoming", paidFrom:"Checking 0182" },
+        { id:"l6", name:"Renters insurance", kind:"Insurance", amount:18.5, due:"Nov 1", status:"Upcoming", paidFrom:"Checking 0182" },
+        { id:"l7", name:"Health insurance", kind:"Insurance", amount:412, due:"Payroll", status:"Paid", paidFrom:"Payroll" }
+      ]
+    };
+    function hold(name, sym, qty, value, cost) { return { id: uid(), name: name, sym: sym, qty: qty, value: value, cost: cost }; }
+  }
+
+  function load() { try { var v = localStorage.getItem("jhdemo.v1"); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function persist() { try { localStorage.setItem("jhdemo.v1", JSON.stringify(S.data)); } catch (e) {} }
+
+  var S = { data: load() || seed(), route: "overview", notice: "", confirm: null, pending: null, watchMsg: {}, reading: null };
+
+  function coll(kind) { return { card: "cards", bank: "banks", inv: "invest", bill: "bills" }[kind]; }
+  function find(kind, id) { return (S.data[coll(kind)] || []).filter(function (x) { return x.id === id; })[0]; }
+  function removeRecord(kind, id) { S.data[coll(kind)] = S.data[coll(kind)].filter(function (x) { return x.id !== id; }); }
+  function invValue(i) { return sum(i.holdings.map(function (h) { return h.value; })); }
+  function invCost(i) { return sum(i.holdings.map(function (h) { return h.cost || 0; })); }
+  function invTotal(kind) { return sum(S.data.invest.filter(function (i) { return i.kind === kind; }).map(invValue)); }
+
+  /* ---------- UI primitives ---------- */
+  function metric(label, value, hint, cls) {
+    return '<div class="card"><div class="lbl">' + esc(label) + '</div><div class="val ' + (cls || "") + '">' + value + '</div>' +
+      (hint ? '<div class="hint ' + (cls === "g" ? "g" : cls === "l" ? "l" : "") + '">' + hint + '</div>' : "") + '</div>';
+  }
+  function metrics(items, cols) {
+    return '<section class="' + (cols === 3 ? "grid3" : "grid4") + '">' + items.map(function (m) { return metric.apply(null, m); }).join("") + '</section>';
+  }
+  function phead(title, sub, actions, crumb, top) {
+    return (crumb ? '<p class="crumb">' + crumb + '</p>' : "") +
+      '<div class="phead' + (top ? " top" : "") + '"' + (crumb ? ' style="margin-top:8px"' : "") + '><div><h1>' + title + '</h1><p class="sub">' + sub + '</p></div>' +
+      '<div class="acts">' + (actions || "") + '</div></div>';
+  }
+  function btn(label, route, primary) { return '<button class="btn' + (primary ? " p" : "") + '" type="button" data-go="' + route + '">' + label + '</button>'; }
+  function act(label, a, attrs, primary) { return '<button class="btn' + (primary ? " p" : "") + '" type="button" data-act="' + a + '"' + (attrs || "") + '>' + label + '</button>'; }
+  function notice() { return S.notice ? '<p class="ok" style="margin:16px 0 0">' + esc(S.notice) + '</p>' : ""; }
+  function field(name, label, o) {
+    o = o || {};
+    var ctl;
+    if (o.options) {
+      ctl = '<select class="in" name="' + name + '"' + (o.disabled ? " disabled" : "") + '>' + o.options.map(function (x) {
+        return '<option' + (x === o.value ? " selected" : "") + '>' + esc(x) + '</option>'; }).join("") + '</select>';
+    } else {
+      ctl = '<input class="in" name="' + name + '" type="' + (o.type || "text") + '" value="' + esc(o.value || "") + '" placeholder="' + esc(o.ph || "") + '"' +
+        (o.req ? " required" : "") + (o.step ? ' step="' + o.step + '"' : "") + '>';
+    }
+    return '<label class="field"><span>' + label + '</span>' + ctl + (o.hint ? '<div class="hint">' + o.hint + '</div>' : "") + '</label>';
+  }
+  function txRow(owner, kind, t, showCat) {
+    var amtHtml = t.amt == null ? esc(t.units || "") : signed(t.amt);
+    var cls = t.amt != null && t.amt >= 0 ? "r g" : "r";
+    return '<tr><td class="lbl">' + esc(t.date) + '</td><td>' + esc(t.desc) + (t.flag ? ' <span class="pill l">Flagged</span>' : "") + '</td>' +
+      (showCat ? '<td><span class="pill">' + esc(t.cat || "") + '</span></td>' : "") +
+      '<td class="' + cls + '">' + amtHtml + '</td><td class="r"><button class="rm" type="button" data-act="del-tx" data-kind="' + kind + '" data-owner="' + owner + '" data-id="' + t.id + '">Remove</button></td></tr>';
+  }
+  function txTable(owner, kind, list, showCat) {
+    var head = "<th>Date</th><th>Description</th>" + (showCat ? "<th>Category</th>" : "") + "<th class=r>Amount</th><th></th>";
+    var body = list.length ? list.map(function (t) { return txRow(owner, kind, t, showCat); }).join("")
+      : '<tr><td colspan="' + (showCat ? 5 : 4) + '" class="lbl" style="padding:20px 0">No activity on this account yet.</td></tr>';
+    return '<div style="overflow-x:auto"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  }
+  function confirmBlock(kind, id, question, label) {
+    if (!(S.confirm && S.confirm.kind === kind && S.confirm.id === id)) return "";
+    return '<div class="card confirm form" style="margin-top:24px"><p style="margin:0;font-weight:500">' + esc(question) + '</p>' +
+      '<p class="hint">This cannot be undone.</p><div class="frow">' + act("Cancel", "cancel-confirm", "", false) +
+      act(label || "Delete", "delete", ' data-kind="' + kind + '" data-id="' + id + '"') + '</div></div>';
+  }
+  function emptyBlock(title, body, actions) {
+    return '<section class="card empty" style="margin-top:24px"><h2>' + title + '</h2><p>' + body + '</p><div class="acts" style="justify-content:center;margin-top:20px">' +
+      actions.map(function (a) { return btn(a[1], a[0]); }).join("") + '</div></section>';
+  }
+
+  /* ---------- nav ---------- */
+  function renderNav(root) {
+    var items = [["overview","Overview"],["cards","Cards"],["banks","Banks"],["bills","Bills"],["invest","Investments"]];
+    document.getElementById("nav").innerHTML = items.map(function (it) {
+      return '<a data-go="' + it[0] + '"' + (it[0] === root ? ' aria-current="page"' : "") + '>' + it[1] + '</a>';
+    }).join("");
+  }
+
+  /* ---------- pages ---------- */
+  function pageOverview() {
+    var cash = sum(S.data.banks.map(function (b) { return b.balance; }));
+    var owed = sum(S.data.cards.map(function (c) { return c.balance; }));
+    var ret = invTotal("Investment"), cry = invTotal("Crypto");
+    var nw = cash + ret + cry - owed;
+    if (!S.data.banks.length && !S.data.cards.length && !S.data.invest.length && !S.data.bills.length) {
+      return phead("Overview", "Nothing recorded yet", "", "", true) + emptyBlock("No accounts yet",
+        "Add a bank, card, investment, or bill by hand.", [["card-new","Add card"],["bank-new","Add bank account"],["inv-new","Add investment"],["bill-new","Add bill"]]);
+    }
+    var total = Math.max(cash + ret + cry + owed, 1);
+    var attention = [];
+    S.data.cards.forEach(function (c) { attention.push('<li><span class="w">Card payment due ' + esc(c.due) + '</span> · ' + esc(c.name) + ' ' + esc(c.last4) + ', ' + money(c.balance) + '</li>'); });
+    S.data.bills.filter(function (b) { return b.status === "Upcoming" || b.status === "Due"; }).forEach(function (b) {
+      attention.push('<li><span class="w">' + esc(b.name) + ' due ' + esc(b.due) + '</span> · ' + money(b.amount) + '</li>'); });
+    S.data.cards.forEach(function (c) { c.tx.filter(function (t) { return t.flag; }).forEach(function (t) {
+      attention.push('<li><span class="l">Flagged charge: ' + money(-t.amt) + '</span> · ' + esc(t.desc) + '</li>'); }); });
+    var recent = [];
+    S.data.banks.forEach(function (b) { b.tx.forEach(function (t) { recent.push({ t: t, src: b.name }); }); });
+    S.data.cards.forEach(function (c) { c.tx.forEach(function (t) { recent.push({ t: t, src: c.name + " " + c.last4 }); }); });
+    recent = recent.slice(0, 6);
+    var alloc = [["Cash", cash, A_CASH], ["Retirement and brokerage", ret, "#2b5ba8"], ["Crypto", cry, "#7a4e9b"], ["Card balances owed", owed, "#b54708"]];
+    return phead("Net worth", "All accounts, recorded balances", "", "", true) +
+      '<section class="card" style="margin-top:24px"><div class="lbl">Net worth</div><div class="hero">' + money(nw) + '</div><div class="hint">Totals use the balances you record.</div></section>' +
+      metrics([
+        ["Cash", money(cash), S.data.banks.length + " bank accounts"],
+        ["Card balances", money(owed), S.data.cards.length + " cards"],
+        ["Retirement and brokerage", money(ret), S.data.invest.filter(function (i) { return i.kind === "Investment"; }).length + " accounts"],
+        ["Crypto", money(cry), S.data.invest.filter(function (i) { return i.kind === "Crypto"; }).length + " accounts"]
+      ]) +
+      '<section class="grid2"><div class="card"><h2>Allocation</h2><p class="lbl" style="margin-top:4px">Share of recorded assets and debt</p><ul class="plain">' +
+      alloc.map(function (a) { return '<li><div style="display:flex;justify-content:space-between"><span>' + a[0] + '</span><span class="num">' + money(a[1]) + '</span></div><div class="bar"><span style="width:' + Math.max(0, Math.round(Math.abs(a[1]) / total * 100)) + '%;background:' + a[2] + '"></span></div></li>'; }).join("") +
+      '</ul></div><div class="card"><h2>Needs attention</h2>' + (attention.length ? '<ul class="plain">' + attention.join("") + '</ul>' : '<p class="note">Nothing needs attention.</p>') + '</div></section>' +
+      '<section class="card stack"><div class="flex" style="justify-content:space-between"><h2>Recent activity</h2></div>' +
+      '<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Description</th><th>Account</th><th class="r">Amount</th></tr></thead><tbody>' +
+      (recent.length ? recent.map(function (r) { return '<tr><td class="lbl">' + esc(r.t.date) + '</td><td>' + esc(r.t.desc) + '</td><td class="lbl">' + esc(r.src) + '</td><td class="r ' + (r.t.amt >= 0 ? "g" : "") + '">' + signed(r.t.amt) + '</td></tr>'; }).join("")
+        : '<tr><td colspan="4" class="lbl" style="padding:20px 0">No activity recorded yet.</td></tr>') + '</tbody></table></div></section>';
+  }
+  var A_CASH = "#0e6b63";
+
+  function pageCards() {
+    var spent = sum(S.data.cards.map(function (c) { return sum(c.tx.filter(function (t) { return t.amt < 0; }).map(function (t) { return -t.amt; })); }));
+    var owed = sum(S.data.cards.map(function (c) { return c.balance; }));
+    var head = phead("Credit cards", S.data.cards.length + " cards", act("Upload statement", "upload-list", "", true) + btn("Add card", "card-new"), "", true);
+    if (!S.data.cards.length) return head + notice() + emptyBlock("No cards yet", "Upload a Chase, Amex, or Citi PDF and we’ll add the card from the last digits, or add a card by hand.", [["card-new","Add card"]]);
+    var rows = S.data.cards.map(function (c) {
+      return '<tr><td><a data-go="card:' + c.id + '"><strong>' + esc(c.name) + ' ' + esc(c.last4) + '</strong></a></td><td class="lbl">' + esc(c.type) + '</td><td class="r">' + money(c.balance) + '</td><td class="lbl">Due ' + esc(c.due) + '</td><td class="r"><a data-go="card:' + c.id + '" class="g" style="font-size:13px;font-weight:600">Open</a></td></tr>';
+    }).join("");
+    return head + notice() + metrics([
+      ["Spent recorded, all cards", money(spent), ""],
+      ["Card balances", money(owed), S.data.cards.length + " cards"],
+      ["Cards", String(S.data.cards.length), ""]
+    ], 3) +
+      '<section class="card stack"><h2>Cards</h2><div style="overflow-x:auto"><table><thead><tr><th>Card</th><th>Type</th><th class="r">Balance owed</th><th>Due</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+  }
+
+  function cardForm(c) {
+    var edit = !!c;
+    return '<form class="card form" data-form="' + (edit ? "card-edit" : "card-new") + '"' + (edit ? ' data-id="' + c.id + '"' : "") + '>' +
+      '<div class="fgrid">' +
+      field("name", "Name", { value: edit ? c.name : "", ph: "Everyday card", req: true }) +
+      field("type", "Type", { options: ["Credit card","Store card","Charge card"], value: edit ? c.type : "Credit card" }) +
+      field("last4", "Last four (optional)", { value: edit ? c.last4 : "", ph: "4821" }) +
+      field("balance", "Balance owed", { value: edit ? c.balance : "", ph: "0.00", type: "number", step: "0.01", hint: "The balance you record today." }) +
+      '</div><p class="err"></p><div class="frow">' + btn("Cancel", edit ? "card:" + c.id : "cards") +
+      '<button class="btn p" type="submit">' + (edit ? "Save" : "Add account") + '</button></div></form>' +
+      (edit ? '<div style="margin-top:24px">' + act("Delete account", "confirm", ' data-kind="card" data-id="' + c.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("card", c.id, "Delete this account and its activity?") : "");
+  }
+
+  function pageCardDetail(c, mode) {
+    if (mode === "edit") return phead(esc(c.name) + " " + esc(c.last4), "Edit card", "", '<a data-go="cards">Cards</a> / <a data-go="card:' + c.id + '">' + esc(c.name) + '</a> / Edit', true) + cardForm(c);
+    var spent = sum(c.tx.filter(function (t) { return t.amt < 0; }).map(function (t) { return -t.amt; }));
+    var crumb = '<a data-go="cards">Cards</a> / ' + esc(c.name) + ' ' + esc(c.last4);
+    return phead(esc(c.name) + " " + esc(c.last4), esc(c.type) + " · Ending " + esc(c.last4), btn("Edit card", "card:" + c.id + ":edit") + act("Upload statement", "upload", ' data-owner="' + c.id + '"', true), crumb, true) + notice() +
+      metrics([
+        ["Balance owed", money(c.balance), "Due " + c.due],
+        ["Spent recorded", money(spent), "From activity below"],
+        ["Credit limit", money(c.limit), (c.limit ? Math.round(c.balance / c.limit * 100) : 0) + "% utilized"],
+        ["APR", esc(c.apr || "Not recorded"), ""]
+      ]) +
+      '<section class="card stack"><h2>Activity</h2>' + txTable(c.id, "card", c.tx, true) +
+      '<form data-form="card-tx" data-id="' + c.id + '" class="inline" style="grid-template-columns:repeat(5,minmax(0,1fr)) auto">' +
+      field("date", "Date", { type: "date", value: "2026-10-27" }) + field("desc", "Description", { ph: "Merchant or payment", req: true }) +
+      field("amount", "Amount", { ph: "0.00", type: "number", step: "0.01" }) +
+      field("dir", "Direction", { options: ["Money out","Money in"] }) + field("cat", "Category (optional)", { ph: "Groceries" }) +
+      '<button class="btn p" type="submit">Add activity</button></form><p class="err"></p></section>' +
+      '<p class="note">Adding money out raises the balance owed. Removing activity does not change the recorded balance.</p>' +
+      confirmBlock("card", c.id, "Delete this account and its activity?");
+  }
+
+  function pageBanks() {
+    var cash = sum(S.data.banks.map(function (b) { return b.balance; }));
+    var head = phead("Bank statements", S.data.banks.length + " accounts", act("Upload statement", "upload-list", "", true) + btn("Add bank account", "bank-new"), "", true);
+    if (!S.data.banks.length) return head + notice() + emptyBlock("No bank accounts yet", "Upload a Bank of Hawaii PDF and we’ll add the checking and savings accounts from the statement, or add an account by hand.", [["bank-new","Add bank account"]]);
+    var rows = S.data.banks.map(function (b) {
+      return '<tr><td><a data-go="bank:' + b.id + '"><strong>' + esc(b.name) + ' ' + esc(b.last4) + '</strong></a></td><td class="lbl">' + esc(b.type) + '</td><td class="r">' + money(b.balance) + '</td><td><span class="pill g">linked</span></td></tr>';
+    }).join("");
+    return head + notice() + metrics([
+      ["Total balance", money(cash), "Across " + S.data.banks.length + " accounts"],
+      ["Money in, recorded", money(sum(S.data.banks.map(function (b) { return sum(b.tx.filter(function (t) { return t.amt > 0; }).map(function (t) { return t.amt; })); }))), "Credits"],
+      ["Money out, recorded", money(sum(S.data.banks.map(function (b) { return sum(b.tx.filter(function (t) { return t.amt < 0; }).map(function (t) { return -t.amt; })); }))), "Debits"],
+      ["Accounts linked", String(S.data.banks.length), ""]
+    ]) + '<section class="card stack"><h2>Accounts</h2><div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Type</th><th class="r">Balance</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+  }
+
+  function bankForm(b) {
+    var edit = !!b;
+    return '<form class="card form" data-form="' + (edit ? "bank-edit" : "bank-new") + '"' + (edit ? ' data-id="' + b.id + '"' : "") + '>' +
+      '<div class="fgrid">' +
+      field("name", "Name", { value: edit ? b.name : "", ph: "Everyday checking", req: true }) +
+      field("type", "Type", { options: ["Checking","Savings","HYSA","Joint checking"], value: edit ? b.type : "Checking" }) +
+      field("last4", "Last four (optional)", { value: edit ? b.last4 : "", ph: "0182" }) +
+      field("balance", "Balance", { value: edit ? b.balance : "", ph: "0.00", type: "number", step: "0.01", hint: "The balance you record today." }) +
+      '</div><p class="err"></p><div class="frow">' + btn("Cancel", edit ? "bank:" + b.id : "banks") +
+      '<button class="btn p" type="submit">' + (edit ? "Save" : "Add account") + '</button></div></form>' +
+      (edit ? '<div style="margin-top:24px">' + act("Delete account", "confirm", ' data-kind="bank" data-id="' + b.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("bank", b.id, "Delete this account and its activity?") : "");
+  }
+
+  function pageBankDetail(b, mode) {
+    if (mode === "edit") return phead(esc(b.name), "Edit account", "", '<a data-go="banks">Bank accounts</a> / <a data-go="bank:' + b.id + '">' + esc(b.name) + '</a> / Edit', true) + bankForm(b);
+    var inn = sum(b.tx.filter(function (t) { return t.amt > 0; }).map(function (t) { return t.amt; }));
+    var out = sum(b.tx.filter(function (t) { return t.amt < 0; }).map(function (t) { return -t.amt; }));
+    return phead(esc(b.name), esc(b.type) + " · Ending " + esc(b.last4), btn("Edit account", "bank:" + b.id + ":edit") + act("Upload statement", "upload", ' data-owner="' + b.id + '"', true),
+      '<a data-go="banks">Bank accounts</a> / ' + esc(b.name), true) + notice() +
+      metrics([["Balance", money(b.balance), "Recorded"], ["Money in", money(inn), "Recorded activity"], ["Money out", money(out), "Recorded activity"], ["Net recorded", signed(inn - out), "", inn - out >= 0 ? "g" : "l"]]) +
+      '<section class="card stack"><h2>Activity</h2>' + txTable(b.id, "bank", b.tx, false) +
+      '<form data-form="bank-tx" data-id="' + b.id + '" class="inline" style="grid-template-columns:repeat(4,minmax(0,1fr)) auto">' +
+      field("date", "Date", { type: "date", value: "2026-10-27" }) + field("desc", "Description", { ph: "Paycheck, transfer, or bill", req: true }) +
+      field("amount", "Amount", { ph: "0.00", type: "number", step: "0.01" }) + field("dir", "Direction", { options: ["Money in","Money out"] }) +
+      '<button class="btn p" type="submit">Add activity</button></form><p class="err"></p></section>' +
+      '<p class="note">Money in raises the recorded balance and money out lowers it. Removing activity does not change the balance.</p>' +
+      confirmBlock("bank", b.id, "Delete this account and its activity?");
+  }
+
+  function pageBills() {
+    var head = phead("Bills and insurance", S.data.bills.length + " bills", btn("Add bill", "bill-new", true), "", true);
+    if (!S.data.bills.length) return head + notice() + emptyBlock("No bills yet", "Add a utility or insurance policy. Utilities get a detail page; insurance stays as a summary card.", [["bill-new","Add bill"]]);
+    function table(kind) {
+      var list = S.data.bills.filter(function (b) { return b.kind === kind; });
+      if (!list.length) return '<p class="note">No ' + (kind === "Utility" ? "utilities" : "insurance policies") + ' yet.</p>';
+      return '<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Due</th><th>Paid from</th><th>Status</th><th class="r">Amount</th><th></th></tr></thead><tbody>' +
+        list.map(function (b) {
+          var cls = b.status === "Upcoming" || b.status === "Due" ? "w" : "g";
+          return '<tr><td><strong>' + esc(b.name) + '</strong></td><td class="lbl">' + esc(b.due) + '</td><td class="lbl">' + esc(b.paidFrom) + '</td><td><span class="pill ' + cls + '">' + esc(b.status) + '</span></td><td class="r">' + money(b.amount) + '</td><td class="r"><a data-go="bill:' + b.id + ':edit" class="g" style="font-size:13px;font-weight:600">Edit</a></td></tr>';
+        }).join("") + '</tbody></table></div>';
+    }
+    var upcoming = S.data.bills.filter(function (b) { return b.status === "Upcoming" || b.status === "Due"; });
+    return head + notice() +
+      '<section class="card stack"><h2>Utilities</h2>' + table("Utility") + '</section>' +
+      '<section class="card stack"><h2>Insurance</h2><p class="note">Summary only. Policies don’t have detail pages.</p>' + table("Insurance") + '</section>' +
+      '<section class="card stack"><h2>Upcoming payments</h2>' + (upcoming.length ? '<ul class="plain">' + upcoming.map(function (b) { return '<li>' + esc(b.due) + ' · ' + esc(b.name) + ' · ' + money(b.amount) + '</li>'; }).join("") + '</ul>' : '<p class="note">No upcoming payments recorded.</p>') + '</section>';
+  }
+
+  function billForm(b) {
+    var edit = !!b;
+    return '<form class="card form" data-form="' + (edit ? "bill-edit" : "bill-new") + '"' + (edit ? ' data-id="' + b.id + '"' : "") + '>' +
+      '<div class="fgrid">' +
+      field("name", "Name", { value: edit ? b.name : "", ph: "Electricity", req: true }) +
+      field("kind", "Kind", { options: ["Utility","Insurance"], value: edit ? b.kind : "Utility", disabled: edit, hint: edit ? "Kind is set when the bill is created." : "" }) +
+      field("amount", "Amount", { value: edit ? b.amount : "", ph: "0.00", type: "number", step: "0.01" }) +
+      field("due", "Due", { value: edit ? b.due : "", ph: "Oct 31", hint: "For example Oct 31 or Payroll." }) +
+      field("status", "Status", { options: BILL_STATUS, value: edit ? b.status : "Upcoming" }) +
+      field("paidFrom", "Paid from", { value: edit ? b.paidFrom : "Not linked", ph: "Not linked", hint: "Pick an account name or leave as Not linked." }) +
+      '</div><p class="err"></p><div class="frow">' + btn("Cancel", "bills") +
+      '<button class="btn p" type="submit">' + (edit ? "Save" : "Add bill") + '</button></div></form>' +
+      (edit ? '<div style="margin-top:24px">' + act("Delete bill", "confirm", ' data-kind="bill" data-id="' + b.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("bill", b.id, "Delete this bill?") : "");
+  }
+
+  function pageInvest() {
+    var head = phead("Investments and crypto", S.data.invest.length + " accounts", btn("Add account", "inv-new", true), "", true);
+    if (!S.data.invest.length) return head + notice() + emptyBlock("No investment accounts yet", "Add a brokerage, 401(k), or crypto account, then type holdings or upload a statement later.", [["inv-new","Add account"]]);
+    var value = sum(S.data.invest.map(invValue)), cost = sum(S.data.invest.map(invCost));
+    var rows = S.data.invest.map(function (i) {
+      var v = invValue(i), c = invCost(i);
+      return '<tr><td><a data-go="inv:' + i.id + '"><strong>' + esc(i.name) + '</strong></a></td><td class="lbl">' + esc(i.kind) + '</td><td class="lbl">' + esc(i.type) + '</td><td class="r">' + money(v) + '</td><td class="r ' + (c ? (v - c >= 0 ? "g" : "l") : "") + '">' + (c ? signed(v - c) : "—") + '</td></tr>';
+    }).join("");
+    return head + notice() + metrics([
+      ["Invested", money(value), S.data.invest.length + " accounts"],
+      ["Total gain", signed(value - cost), "On recorded cost basis", value - cost >= 0 ? "g" : "l"],
+      ["Crypto", money(invTotal("Crypto")), S.data.invest.filter(function (i) { return i.kind === "Crypto"; }).length + " accounts"],
+      ["Cost basis", money(cost), "Recorded"]
+    ]) + '<section class="card stack"><h2>Accounts</h2><div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Kind</th><th>Type</th><th class="r">Value</th><th class="r">Gain</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+  }
+
+  function invForm(i) {
+    var edit = !!i;
+    var kind = edit ? i.kind : "Investment";
+    var types = kind === "Crypto" ? ["Crypto","Exchange","Wallet"] : ["Brokerage","Retirement","401(k)","IRA"];
+    return '<form class="card form" data-form="' + (edit ? "inv-edit" : "inv-new") + '"' + (edit ? ' data-id="' + i.id + '"' : "") + '>' +
+      '<div class="fgrid">' +
+      field("name", "Name", { value: edit ? i.name : "", ph: "Brokerage", req: true }) +
+      field("kind", "Kind", { options: ["Investment","Crypto"], value: kind, disabled: edit, hint: edit ? "Kind is set when the account is created." : "" }) +
+      field("type", "Type", { options: edit ? types : ["Brokerage","Retirement","401(k)","IRA"], value: edit ? i.type : "Brokerage", hint: "Types follow the kind: Investment or Crypto." }) +
+      (edit ? "" : '<div class="fgrid" data-crypto-only style="display:none;grid-column:1/-1">' +
+        field("chain", "Chain (crypto only)", { options: CHAINS, value: "Bitcoin" }) +
+        field("addr", "Watch address (optional)", { ph: "bc1q…, xpub…, or zpub…", hint: "Public receive address or xpub/zpub only. Never a seed phrase or private key." }) +
+        '</div>') +
+      '</div><p class="err"></p><div class="frow">' + btn("Cancel", edit ? "inv:" + i.id : "invest") +
+      '<button class="btn p" type="submit">' + (edit ? "Save" : "Add account") + '</button></div></form>' +
+      (edit ? '<div style="margin-top:24px">' + act("Delete account", "confirm", ' data-kind="inv" data-id="' + i.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("inv", i.id, "Delete this account and its activity?") : "");
+  }
+
+  function watchCard(i) {
+    var msg = S.watchMsg[i.id] || { ok: "", err: "" };
+    var rows = i.watch.length ? i.watch.map(function (w) {
+      var pending = S.pending && S.pending.id === w.id;
+      return '<tr><td>' + esc(w.chain) + '</td><td class="addr num">' + esc(w.addr) + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
+        (pending ? '<button class="btn spin" type="button" disabled>Fetching…</button>' : act("Fetch transactions", "fetch", ' data-owner="' + i.id + '" data-id="' + w.id + '"')) +
+        '<button class="rm" type="button" data-act="del-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>';
+    }).join("") : "";
+    return '<section class="card stack"><h2>Watched addresses</h2><p class="sub" style="margin-top:4px;font-size:13px">Public receive addresses or HD xpub/ypub/zpub. Do not paste a seed phrase or private key.</p>' +
+      (i.watch.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Chain</th><th>Address</th><th>Last fetch</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<p class="note">No addresses watched yet.</p>') +
+      '<form data-form="watch-add" data-id="' + i.id + '" class="form" style="max-width:576px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)"><div class="fgrid">' +
+      field("chain", "Chain", { options: CHAINS, value: "Bitcoin" }) +
+      field("addr", "Address", { ph: "bc1q…, xpub…, or zpub…", hint: "One address, or an Exodus xpub/zpub. Native SegWit and Taproot are separate zpubs." }) +
+      '</div><div style="margin-top:14px"><button class="btn p" type="submit">Watch address</button></div>' +
+      (msg.ok ? '<p class="ok">' + esc(msg.ok) + '</p>' : "") + (msg.err ? '<p class="err">' + esc(msg.err) + '</p>' : "") + '</form></section>';
+  }
+
+  function pageInvDetail(i, mode) {
+    if (mode === "edit") return phead(esc(i.name), "Edit account", "", '<a data-go="invest">Investments</a> / <a data-go="inv:' + i.id + '">' + esc(i.name) + '</a> / Edit', true) + invForm(i);
+    var v = invValue(i), c = invCost(i);
+    var crumb = '<a data-go="invest">Investments</a> / ' + esc(i.name);
+    var kv = [["Kind", esc(i.kind)], ["Type", esc(i.type)], ["Currency", "USD"]];
+    if (i.kind === "Crypto" && i.watch.length) kv.push(["Watched addresses", i.watch.length + (i.watch.length === 1 ? " address" : " addresses")]);
+    var total = Math.max(v, 1);
+    var hold = i.holdings.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Symbol</th><th class="r">Quantity</th><th class="r">Value</th><th class="r">Cost basis</th><th></th></tr></thead><tbody>' +
+      i.holdings.map(function (h) {
+        return '<tr><td>' + esc(h.name) + '</td><td class="lbl">' + esc(h.sym || "—") + '</td><td class="r">' + esc(h.qty || "—") + '</td><td class="r">' + money(h.value) + '</td><td class="r">' + (h.cost ? money(h.cost) : "—") + '</td><td class="r"><button class="rm" type="button" data-act="del-holding" data-owner="' + i.id + '" data-id="' + h.id + '">Remove</button></td></tr>';
+      }).join("") + '</tbody></table></div>' : '<p class="note">No holdings on this account yet.</p>';
+    var hForm = '<form data-form="hold-add" data-id="' + i.id + '" class="inline" style="grid-template-columns:repeat(5,minmax(0,1fr)) auto">' +
+      field("name", "Name", { ph: "Holding name", req: true }) + field("sym", "Symbol (optional)", { ph: "VTI" }) +
+      field("qty", "Quantity", { ph: "0", type: "number", step: "any" }) + field("value", "Value", { ph: "0.00", type: "number", step: "0.01" }) +
+      field("cost", "Cost basis (optional)", { ph: "0.00", type: "number", step: "0.01" }) + '<button class="btn p" type="submit">Add holding</button></form><p class="err"></p>';
+    var aForm = '<form data-form="inv-tx" data-id="' + i.id + '" class="inline" style="grid-template-columns:repeat(3,minmax(0,1fr)) auto">' +
+      field("date", "Date", { type: "date", value: "2026-10-27" }) + field("desc", "Description", { ph: "Buy, sell, dividend, or transfer", req: true }) +
+      field("amount", "Amount (+ in, − out)", { ph: "0.00", type: "number", step: "0.01" }) + '<button class="btn p" type="submit">Add activity</button></form><p class="err"></p>';
+    var bars = i.holdings.length ? '<div class="bars">' + i.holdings.map(function (h, k) {
+      var mx = Math.max.apply(null, i.holdings.map(function (x) { return x.value; })) || 1;
+      return '<span class="' + (k === i.holdings.length - 1 ? "last" : "") + '" style="height:' + Math.max(4, Math.round(h.value / mx * 144)) + 'px" title="' + esc(h.name) + '"></span>';
+    }).join("") + '</div><div class="labels">' + i.holdings.map(function (h) { return '<span>' + esc(h.name.split(" ")[0]) + '</span>'; }).join("") + '</div>'
+      : '<div class="note" style="border:1px dashed var(--line);border-radius:12px;padding:40px 16px;text-align:center;margin-top:20px">No holdings yet. Add one below to see the mix.</div>';
+    return phead(esc(i.name), esc(i.type) + " · " + esc(i.kind), btn("Edit account", "inv:" + i.id + ":edit"), crumb, true) + notice() +
+      metrics([
+        ["Value", money(v), "Recorded holdings"],
+        ["Total gain", c ? signed(v - c) : "—", c ? "Cost basis " + money(c) : "No cost basis recorded", c ? (v - c >= 0 ? "g" : "l") : ""],
+        ["Holdings", String(i.holdings.length), "Positions"],
+        ["Activity", String(i.tx.length), "Recorded lines"]
+      ]) +
+      '<section class="grid2"><div class="card"><h2>Mix by holding</h2><p class="lbl" style="margin-top:4px">Value from holdings. Prices are not live.</p>' + bars + '</div>' +
+      '<div class="card"><h2>Account details</h2><div style="margin-top:8px">' + kv.map(function (x) { return '<div class="kv"><span>' + x[0] + '</span><span>' + x[1] + '</span></div>'; }).join("") + '</div></div></section>' +
+      (i.kind === "Crypto" ? watchCard(i) : "") +
+      '<section class="card stack"><h2>Holdings</h2>' + hold + hForm + '</section>' +
+      '<section class="card stack"><h2>Recent activity</h2><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Activity</th><th class="r">Amount</th><th></th></tr></thead><tbody>' +
+      (i.tx.length ? i.tx.map(function (t) {
+        return '<tr><td class="lbl">' + esc(t.date) + '</td><td>' + esc(t.desc) + '</td><td class="r ' + (t.amt != null && t.amt >= 0 ? "g" : "") + '">' + (t.amt == null ? esc(t.units || "") : signed(t.amt)) + '</td><td class="r"><button class="rm" type="button" data-act="del-tx" data-kind="inv" data-owner="' + i.id + '" data-id="' + t.id + '">Remove</button></td></tr>';
+      }).join("") : '<tr><td colspan="4" class="lbl" style="padding:20px 0">No activity on this account yet.</td></tr>') +
+      '</tbody></table></div>' + aForm + '</section>' +
+      '<p class="note">Watching an address is not a wallet import. Fetching pulls indexed transactions into recent activity. Removing an address stops watching; stored transactions stay.</p>' +
+      confirmBlock("inv", i.id, "Delete this account and its activity?");
+  }
+
+  /* ---------- render ---------- */
+  function render() {
+    var parts = S.route.split(":"), p = parts[0], id = parts[1], mode = parts[2];
+    var root = { "card": "cards", "card-new": "cards", "cards": "cards", "bank": "banks", "bank-new": "banks", "banks": "banks",
+      "bill": "bills", "bill-new": "bills", "bills": "bills", "inv": "invest", "inv-new": "invest", "invest": "invest", "overview": "overview" }[p] || "overview";
+    renderNav(root);
+    var html;
+    if (p === "overview") html = pageOverview();
+    else if (p === "cards") html = pageCards();
+    else if (p === "card-new") html = phead("Add card", "Name the card first. Upload a statement onto it later, or type activity now.", "", '<a data-go="cards">Cards</a> / Add', true) + cardForm(null);
+    else if (p === "card") { var c = find("card", id); html = c ? pageCardDetail(c, mode) : pageCards(); }
+    else if (p === "banks") html = pageBanks();
+    else if (p === "bank-new") html = phead("Add bank account", "Name the account first. Upload a statement onto it later, or type lines now.", "", '<a data-go="banks">Bank accounts</a> / Add', true) + bankForm(null);
+    else if (p === "bank") { var b = find("bank", id); html = b ? pageBankDetail(b, mode) : pageBanks(); }
+    else if (p === "bills") html = pageBills();
+    else if (p === "bill-new") html = phead("Add bill", "Utilities get a detail page. Insurance stays as a summary card.", "", '<a data-go="bills">Bills</a> / Add', true) + billForm(null);
+    else if (p === "bill") { var l = find("bill", id); html = l ? phead(esc(l.name), "Edit bill", "", '<a data-go="bills">Bills</a> / Edit', true) + billForm(l) : pageBills(); }
+    else if (p === "invest") html = pageInvest();
+    else if (p === "inv-new") html = phead("Add investment account", "Brokerage, 401(k), or crypto. Holdings can be typed on the account page.", "", '<a data-go="invest">Investments</a> / Add', true) + invForm(null);
+    else if (p === "inv") { var v = find("inv", id); html = v ? pageInvDetail(v, mode) : pageInvest(); }
+    else html = pageOverview();
+    document.getElementById("app").innerHTML = html;
+  }
+
+  function go(route) { S.route = route; S.notice = ""; S.confirm = null; render(); window.scrollTo(0, 0); }
+  function commit(msg) { persist(); if (msg !== undefined) S.notice = msg; render(); }
+
+  /* ---------- actions ---------- */
+  var ACTIONS = {
+    "del-tx": function (d) {
+      var owner = find(d.kind, d.owner); if (!owner) return;
+      owner.tx = owner.tx.filter(function (t) { return t.id !== d.id; }); commit("Activity removed.");
+    },
+    "confirm": function (d) { S.confirm = { kind: d.kind, id: d.id }; render(); },
+    "cancel-confirm": function () { S.confirm = null; render(); },
+    "delete": function (d) {
+      removeRecord(d.kind, d.id); S.confirm = null;
+      go({ card: "cards", bank: "banks", inv: "invest", bill: "bills" }[d.kind]);
+    },
+    "del-holding": function (d) {
+      var i = find("inv", d.owner); if (!i) return;
+      i.holdings = i.holdings.filter(function (h) { return h.id !== d.id; }); commit("Holding removed.");
+    },
+    "del-watch": function (d) {
+      var i = find("inv", d.owner); if (!i) return;
+      i.watch = i.watch.filter(function (w) { return w.id !== d.id; });
+      delete S.watchMsg[i.id];
+      commit("Address unwatched. Stored transactions stay in recent activity.");
+    },
+    "fetch": function (d) {
+      var i = find("inv", d.owner); if (!i || S.pending) return;
+      var w = i.watch.filter(function (x) { return x.id === d.id; })[0]; if (!w) return;
+      S.pending = { id: w.id }; S.watchMsg[i.id] = { ok: "", err: "" }; render();
+      setTimeout(function () {
+        var sym = SYM[w.chain] || "coin";
+        var other = "bc1qdemoreceiver0000000000000000k3t7";
+        var samples = [
+          { key: w.id + ":in", date: "Oct 27", desc: "Received 0.040 " + sym + " from " + short(w.addr), units: "+0.040 " + sym, amt: sym === "BTC" ? 3540 : null },
+          { key: w.id + ":out", date: "Oct 27", desc: "Sent 0.010 " + sym + " to " + short(other), units: "-0.010 " + sym, amt: sym === "BTC" ? -1405 : null }
+        ];
+        var have = {}; i.tx.forEach(function (t) { if (t.key) have[t.key] = true; });
+        var added = 0;
+        samples.forEach(function (s) { if (!have[s.key]) { i.tx.unshift({ id: uid(), key: s.key, date: s.date, desc: s.desc, units: s.units, amt: s.amt }); added++; } });
+        w.last = TODAY;
+        S.pending = null;
+        S.watchMsg[i.id] = { ok: "Fetched " + samples.length + ", imported " + added + " new, skipped " + (samples.length - added) + " already stored.", err: "" };
+        persist(); render();
+      }, 700);
+      render();
+    },
+    "upload": function (d) { S.uploadOwner = d.owner; document.getElementById("pdf").click(); },
+    "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
+    "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
+    "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); }
+  };
+
+  /* ---------- forms ---------- */
+  function val(f, n) { var el = f.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ""; }
+  function setErr(f, msg) { var el = f.querySelector(".err"); if (el) el.textContent = msg; }
+  function amountOf(f, n) { var v = num(val(f, n)); return isNaN(v) ? NaN : v; }
+
+  var FORMS = {
+    "card-new": function (f) {
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the card.");
+      var bal = amountOf(f, "balance"); if (isNaN(bal)) bal = 0;
+      var c = { id: uid(), name: name, type: val(f, "type"), last4: val(f, "last4"), balance: bal, due: "—", limit: 0, apr: "", tx: [] };
+      S.data.cards.push(c); persist(); go("card:" + c.id);
+    },
+    "card-edit": function (f) {
+      var c = find("card", f.dataset.id); if (!c) return;
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the card.");
+      c.name = name; c.type = val(f, "type"); c.last4 = val(f, "last4");
+      var bal = amountOf(f, "balance"); if (!isNaN(bal)) c.balance = bal;
+      persist(); go("card:" + c.id);
+    },
+    "card-tx": function (f) {
+      var c = find("card", f.dataset.id); if (!c) return;
+      var desc = val(f, "desc"); if (!desc) return setErr(f, "Enter a description.");
+      var a = amountOf(f, "amount"); if (isNaN(a) || a <= 0) return setErr(f, "Enter an amount greater than zero.");
+      var out = val(f, "dir") === "Money out";
+      c.tx.unshift({ id: uid(), date: isoToShort(val(f, "date") || "2026-10-27"), desc: desc, cat: val(f, "cat"), amt: out ? -a : a });
+      c.balance = Math.round((c.balance + (out ? a : -a)) * 100) / 100;
+      commit("Activity added.");
+    },
+    "bank-new": function (f) {
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the account.");
+      var bal = amountOf(f, "balance"); if (isNaN(bal)) bal = 0;
+      var b = { id: uid(), name: name, type: val(f, "type"), last4: val(f, "last4"), balance: bal, tx: [] };
+      S.data.banks.push(b); persist(); go("bank:" + b.id);
+    },
+    "bank-edit": function (f) {
+      var b = find("bank", f.dataset.id); if (!b) return;
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the account.");
+      b.name = name; b.type = val(f, "type"); b.last4 = val(f, "last4");
+      var bal = amountOf(f, "balance"); if (!isNaN(bal)) b.balance = bal;
+      persist(); go("bank:" + b.id);
+    },
+    "bank-tx": function (f) {
+      var b = find("bank", f.dataset.id); if (!b) return;
+      var desc = val(f, "desc"); if (!desc) return setErr(f, "Enter a description.");
+      var a = amountOf(f, "amount"); if (isNaN(a) || a <= 0) return setErr(f, "Enter an amount greater than zero.");
+      var inn = val(f, "dir") === "Money in";
+      b.tx.unshift({ id: uid(), date: isoToShort(val(f, "date") || "2026-10-27"), desc: desc, cat: "", amt: inn ? a : -a });
+      b.balance = Math.round((b.balance + (inn ? a : -a)) * 100) / 100;
+      commit("Activity added.");
+    },
+    "bill-new": function (f) {
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the bill.");
+      var a = amountOf(f, "amount"); if (isNaN(a)) return setErr(f, "Enter an amount.");
+      var due = val(f, "due") || "—";
+      var l = { id: uid(), name: name, kind: val(f, "kind"), amount: a, due: due, status: val(f, "status"), paidFrom: val(f, "paidFrom") || "Not linked" };
+      S.data.bills.push(l); persist();
+      go(l.kind === "Utility" ? "bills" : "bills");
+      S.notice = "Bill added.";
+      render();
+    },
+    "bill-edit": function (f) {
+      var l = find("bill", f.dataset.id); if (!l) return;
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the bill.");
+      var a = amountOf(f, "amount"); if (isNaN(a)) return setErr(f, "Enter an amount.");
+      l.name = name; l.amount = a; l.due = val(f, "due") || "—"; l.status = val(f, "status"); l.paidFrom = val(f, "paidFrom") || "Not linked";
+      persist(); go("bills");
+    },
+    "inv-new": function (f) {
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the account.");
+      var i = { id: uid(), name: name, kind: val(f, "kind"), type: val(f, "type"), holdings: [], tx: [], watch: [] };
+      if (i.kind === "Crypto") {
+        var addr = val(f, "addr");
+        if (addr) {
+          if (/^[xyzt]prv/i.test(addr)) return setErr(f, "Do not paste an extended private key (xprv/zprv). Use the xpub/zpub.");
+          if (addr.length < 26) return setErr(f, "Enter a full address or extended public key.");
+          i.watch.push({ id: uid(), chain: val(f, "chain"), addr: addr, last: null });
+        }
+      }
+      S.data.invest.push(i); persist(); go("inv:" + i.id);
+    },
+    "inv-edit": function (f) {
+      var i = find("inv", f.dataset.id); if (!i) return;
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the account.");
+      i.name = name; i.type = val(f, "type");
+      persist(); go("inv:" + i.id);
+    },
+    "hold-add": function (f) {
+      var i = find("inv", f.dataset.id); if (!i) return;
+      var name = val(f, "name"); if (!name) return setErr(f, "Enter a holding name.");
+      var v = amountOf(f, "value"); if (isNaN(v)) return setErr(f, "Enter a value.");
+      var q = val(f, "qty"), cst = amountOf(f, "cost");
+      i.holdings.push({ id: uid(), name: name, sym: val(f, "sym"), qty: q, value: v, cost: isNaN(cst) ? "" : cst });
+      commit("Holding added.");
+    },
+    "inv-tx": function (f) {
+      var i = find("inv", f.dataset.id); if (!i) return;
+      var desc = val(f, "desc"); if (!desc) return setErr(f, "Enter a description.");
+      var a = amountOf(f, "amount"); if (isNaN(a)) return setErr(f, "Enter an amount. Use a minus sign for money out.");
+      i.tx.unshift({ id: uid(), date: isoToShort(val(f, "date") || "2026-10-27"), desc: desc, amt: a });
+      commit("Activity added.");
+    },
+    "watch-add": function (f) {
+      var i = find("inv", f.dataset.id); if (!i) return;
+      var addr = val(f, "addr"), chain = val(f, "chain");
+      var msg = S.watchMsg[i.id] = { ok: "", err: "" };
+      if (!addr) { msg.err = "Enter an address."; return render(); }
+      if (/^[xyzt]prv/i.test(addr)) { msg.err = "Do not paste an extended private key (xprv/zprv). Use the xpub/zpub."; return render(); }
+      if (addr.length < 26) { msg.err = "Enter a full address or extended public key."; return render(); }
+      if (i.watch.some(function (w) { return w.addr === addr; })) { msg.err = "That address is already watched on this account."; return render(); }
+      i.watch.push({ id: uid(), chain: chain, addr: addr, last: null });
+      persist(); render();
+    }
+  };
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-act]");
+    if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a.dataset); return; }
+    var g = e.target.closest("[data-go]");
+    if (g) { e.preventDefault(); go(g.dataset.go); }
+  });
+  document.addEventListener("change", function (e) {
+    var el = e.target;
+    if (el.name !== "kind" || !el.form || el.form.dataset.form !== "inv-new") return;
+    var wrap = el.form.querySelector("[data-crypto-only]");
+    if (wrap) wrap.style.display = el.value === "Crypto" ? "grid" : "none";
+    var t = el.form.querySelector('[name="type"]');
+    if (!t) return;
+    var opts = el.value === "Crypto" ? ["Crypto", "Exchange", "Wallet"] : ["Brokerage", "Retirement", "401(k)", "IRA"];
+    t.innerHTML = opts.map(function (x) { return "<option>" + esc(x) + "</option>"; }).join("");
+  });
+  document.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target, h = FORMS[f.dataset.form];
+    if (h) h(f);
+  });
+  document.getElementById("pdf").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    var owner = S.uploadOwner;
+    var target = find("card", owner) ? "card" : find("bank", owner) ? "bank" : null;
+    var rec = target ? find(target, owner) : (S.data.cards[0] ? (target = "card", S.data.cards[0]) : (S.data.banks[0] ? (target = "bank", S.data.banks[0]) : null));
+    if (!rec) { S.notice = "Add a card or bank account before uploading a statement."; render(); return; }
+    S.reading = rec.id; S.notice = "Reading statement…"; render();
+    setTimeout(function () {
+      var samples = target === "card"
+        ? [{ date: "Oct 25", desc: "Grocery market", cat: "Groceries", amt: -54.1 }, { date: "Oct 25", desc: "Streaming service", cat: "Subscriptions", amt: -17.99 }]
+        : [{ date: "Oct 25", desc: "Payroll deposit", cat: "", amt: 3160 }, { date: "Oct 25", desc: "Groceries", cat: "", amt: -112.4 }];
+      var added = 0;
+      samples.forEach(function (s) {
+        if (!rec.tx.some(function (t) { return t.desc === s.desc && t.date === s.date; })) { rec.tx.unshift(Object.assign({ id: uid() }, s)); added++; }
+      });
+      S.reading = null;
+      S.notice = "Demo: imported " + added + " sample lines, skipped " + (samples.length - added) + " already stored. The PDF itself isn’t read.";
+      persist(); render();
+    }, 900);
+  });
+  document.getElementById("search").addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
