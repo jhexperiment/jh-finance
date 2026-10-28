@@ -46,7 +46,7 @@ const subtypeOptions: Record<AccountKind, string[]> = {
   'credit-card': ['Credit card', 'Store card', 'Charge card'],
   bank: ['Checking', 'Savings', 'HYSA', 'Joint checking'],
   investment: ['Brokerage', 'Retirement', '401(k)', 'IRA'],
-  crypto: ['Crypto', 'Exchange', 'Wallet'],
+  crypto: ['Wallet', 'Exchange'],
 }
 
 const kindLabel: Record<AccountKind, string> = {

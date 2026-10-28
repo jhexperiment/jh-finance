@@ -169,7 +169,7 @@ export const DEFAULT_SUBTYPE: Record<AccountKind, string> = {
   'credit-card': 'Credit card',
   bank: 'Checking',
   investment: 'Brokerage',
-  crypto: 'Crypto',
+  crypto: 'Wallet',
 }
 
 export const ACCOUNT_KIND_TO_PRISMA: Record<AccountKind, string> = {

@@ -39,8 +39,12 @@ describe('AccountFormPage investments', () => {
     expect(screen.queryByText('Watched addresses')).toBeNull()
 
     fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'crypto' } })
-    expect(screen.getByRole('option', { name: 'Exchange' })).toBeTruthy()
-    expect(screen.getByRole('option', { name: 'Wallet' })).toBeTruthy()
+    const type = screen.getByRole('combobox', { name: /Type/ }) as HTMLSelectElement
+    expect(type.value).toBe('Wallet')
+    expect([...type.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
+      'Wallet',
+      'Exchange',
+    ])
     expect(screen.getByLabelText('Chain')).toBeTruthy()
     expect(screen.getByRole('option', { name: 'Bitcoin' })).toBeTruthy()
     expect(screen.getByRole('option', { name: 'Stellar' })).toBeTruthy()
@@ -83,6 +87,7 @@ describe('AccountFormPage investments', () => {
     expect(await screen.findByText('account detail')).toBeTruthy()
     const created = (await api.getAccounts()).find((row) => row.name === 'Cold wallet')
     expect(created?.kind).toBe('crypto')
+    expect(created?.typeLabel).toBe('Wallet')
     const watched = await api.listChainAddresses(created!.id)
     expect(watched).toHaveLength(2)
     expect(watched.map((row) => row.chain)).toEqual(['btc', 'btc'])
