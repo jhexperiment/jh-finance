@@ -77,6 +77,11 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
 .labels{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:8px}
 .note{margin:14px 0 0;font-size:13px;color:var(--muted);line-height:1.5}
 .addr{word-break:break-all}
+.addrcell{display:flex;align-items:center;gap:8px;width:260px;max-width:100%}
+.addrtxt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.tip{position:fixed;z-index:50;max-width:360px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.4;color:var(--ink);word-break:break-all;box-shadow:0 6px 20px rgba(26,29,33,.12);pointer-events:none}
+.copy{flex:none;width:30px;height:30px;padding:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer}
+.copy:hover{color:var(--ink)}
 .confirm{border-color:var(--loss)}
 .flex{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
 .footer{margin-top:32px;font-size:13px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -493,7 +498,10 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     var msg = S.watchMsg[i.id] || { ok: "", err: "" };
     var rows = i.watch.length ? i.watch.map(function (w) {
       var pending = S.pending && S.pending.id === w.id;
-      return '<tr><td>' + esc(w.chain) + '</td><td class="addr num">' + esc(w.addr) + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
+      var cell = '<div class="addrcell"><span class="addrtxt num" data-full="' + esc(w.addr) + '">' + esc(w.addr) + '</span>' +
+        '<button class="copy" type="button" data-act="copy" data-text="' + esc(w.addr) + '" aria-label="Copy address" title="Copy address">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>';
+      return '<tr><td>' + esc(w.chain) + '</td><td>' + cell + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
         (pending ? '<button class="btn spin" type="button" disabled>Fetching…</button>' : act("Fetch transactions", "fetch", ' data-owner="' + i.id + '" data-id="' + w.id + '"')) +
         '<button class="rm" type="button" data-act="del-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>';
     }).join("") : "";
@@ -549,6 +557,31 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       '<p class="note">Watching an address is not a wallet import. Fetching pulls indexed transactions into recent activity. Removing an address stops watching; stored transactions stay.</p>' +
       confirmBlock("inv", i.id, "Delete this account and its activity?");
   }
+
+  /* ---------- address tooltip ---------- */
+  var tipEl = null;
+  function hideTip() { if (tipEl && tipEl.parentNode) tipEl.parentNode.removeChild(tipEl); tipEl = null; }
+  document.addEventListener("mouseover", function (e) {
+    var t = e.target.closest && e.target.closest(".addrtxt");
+    if (!t) return;
+    hideTip();
+    var d = document.createElement("div");
+    d.className = "tip";
+    d.textContent = t.getAttribute("data-full") || "";
+    document.body.appendChild(d);
+    var r = t.getBoundingClientRect();
+    var left = Math.max(8, Math.min(r.left, window.innerWidth - d.offsetWidth - 8));
+    var top = r.bottom + 6;
+    if (top + d.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - d.offsetHeight - 6);
+    d.style.left = left + "px";
+    d.style.top = top + "px";
+    tipEl = d;
+  });
+  document.addEventListener("mouseout", function (e) {
+    var t = e.target.closest && e.target.closest(".addrtxt");
+    if (t) hideTip();
+  });
+  window.addEventListener("scroll", hideTip, true);
 
   /* ---------- render ---------- */
   function render() {
@@ -624,6 +657,27 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
     "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
     "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); },
+    "copy": function (d, el) {
+      var text = d.text || "";
+      function done(ok) {
+        el.style.color = ok ? "var(--gain)" : "var(--loss)";
+        el.setAttribute("title", ok ? "Copied" : "Copy failed");
+        setTimeout(function () { el.style.color = ""; el.setAttribute("title", "Copy address"); }, 1200);
+      }
+      function fallback() {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          var ok = document.execCommand("copy");
+          document.body.removeChild(ta); done(ok);
+        } catch (err) { done(false); }
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+        else fallback();
+      } catch (err) { fallback(); }
+    },
     "add-watch-row": function () {
       var f = document.querySelector('[data-form="inv-new"]'); if (!f) return;
       var box = f.querySelector("[data-watch-rows]");
@@ -752,12 +806,15 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       if (addr.length < 26) { msg.err = "Enter a full address or extended public key."; return render(); }
       if (i.watch.some(function (w) { return w.addr === addr; })) { msg.err = "That address is already watched on this account."; return render(); }
       i.watch.push({ id: uid(), chain: chain, addr: addr, last: null });
+      S.watchMsg[i.id] = { ok: "Watching " + chain + " address. Fetch transactions to pull activity.", err: "" };
       persist(); render();
     }
   };
 
   /* ---------- events ---------- */
   document.addEventListener("click", function (e) {
+    var sb = e.target.closest && e.target.closest("button[type='submit']");
+    if (sb && sb.form && FORMS[sb.form.dataset.form]) { e.preventDefault(); FORMS[sb.form.dataset.form](sb.form); return; }
     var a = e.target.closest("[data-act]");
     if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a.dataset, a); return; }
     var g = e.target.closest("[data-go]");
