@@ -431,6 +431,45 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     ]) + '<section class="card stack"><h2>Accounts</h2><div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Kind</th><th>Type</th><th class="r">Value</th><th class="r">Gain</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
   }
 
+  var BTC_PH = ["xpub… (legacy 1…)", "zpub… (SegWit bc1q…)", "zpub… (Taproot bc1p…)"];
+  var SINGLE_PH = { "Litecoin": "ltc1… or Ltub…", "Ethereum": "0x…", "BNB Chain": "0x…", "XRP": "r…", "Stellar": "G…" };
+  function watchRow(n) {
+    return '<div data-watch-row style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">' +
+      '<label class="field"><span>Watch ' + n + '</span><input class="in" name="w" placeholder="' + esc(BTC_PH[n - 1] || "xpub… or zpub…") + '"></label>' +
+      '<button class="rm" type="button" data-act="rm-watch-row" style="padding-bottom:12px">Remove</button></div>';
+  }
+  function renumber(f) {
+    var rows = f.querySelectorAll("[data-watch-row]");
+    rows.forEach(function (r, k) {
+      r.querySelector("span").textContent = "Watch " + (k + 1);
+      var rm = r.querySelector('[data-act="rm-watch-row"]');
+      if (rm) rm.style.display = rows.length > 1 ? "" : "none";
+    });
+  }
+  function cryptoBlock() {
+    return '<div class="fgrid" data-crypto-only style="display:none;grid-column:1/-1">' +
+      field("chain", "Chain", { options: CHAINS, value: "Bitcoin" }) +
+      '<div data-btc style="display:grid;gap:12px">' +
+        '<div><div style="font-size:13px;font-weight:500">Watched addresses</div>' +
+        '<div class="hint">Bitcoin HD wallets need separate watches: legacy xpub, SegWit zpub, and Taproot zpub. Leave unused rows blank. Never paste a seed phrase or private key.</div></div>' +
+        '<div data-watch-rows style="display:grid;gap:12px">' + watchRow(1) + watchRow(2) + watchRow(3) + '</div>' +
+        '<div><button class="btn" type="button" data-act="add-watch-row">Add another watch</button></div>' +
+      '</div>' +
+      '<div data-chain-single style="display:none">' +
+        field("w", "Watch address", { ph: "" }) +
+      '</div>' +
+      '</div>';
+  }
+  function syncCrypto(f) {
+    var kind = f.querySelector('[name="kind"]').value;
+    var chain = f.querySelector('[name="chain"]').value;
+    var btc = chain === "Bitcoin";
+    f.querySelector("[data-crypto-only]").style.display = kind === "Crypto" ? "grid" : "none";
+    f.querySelector("[data-btc]").style.display = btc ? "grid" : "none";
+    var single = f.querySelector("[data-chain-single]");
+    single.style.display = btc ? "none" : "block";
+    single.querySelector('[name="w"]').placeholder = SINGLE_PH[chain] || "";
+  }
   function invForm(i) {
     var edit = !!i;
     var kind = edit ? i.kind : "Investment";
@@ -440,10 +479,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       field("name", "Name", { value: edit ? i.name : "", ph: "Brokerage", req: true }) +
       field("kind", "Kind", { options: ["Investment","Crypto"], value: kind, disabled: edit, hint: edit ? "Kind is set when the account is created." : "" }) +
       field("type", "Type", { options: edit ? types : ["Brokerage","Retirement","401(k)","IRA"], value: edit ? i.type : "Brokerage", hint: "Types follow the kind: Investment or Crypto." }) +
-      (edit ? "" : '<div class="fgrid" data-crypto-only style="display:none;grid-column:1/-1">' +
-        field("chain", "Chain (crypto only)", { options: CHAINS, value: "Bitcoin" }) +
-        field("addr", "Watch address (optional)", { ph: "bc1q…, xpub…, or zpub…", hint: "Public receive address or xpub/zpub only. Never a seed phrase or private key." }) +
-        '</div>') +
+      (edit ? "" : cryptoBlock()) +
       '</div><p class="err"></p><div class="frow">' + btn("Cancel", edit ? "inv:" + i.id : "invest") +
       '<button class="btn p" type="submit">' + (edit ? "Save" : "Add account") + '</button></div></form>' +
       (edit ? '<div style="margin-top:24px">' + act("Delete account", "confirm", ' data-kind="inv" data-id="' + i.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("inv", i.id, "Delete this account and its activity?") : "");
@@ -583,7 +619,17 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "upload": function (d) { S.uploadOwner = d.owner; document.getElementById("pdf").click(); },
     "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
     "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
-    "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); }
+    "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); },
+    "add-watch-row": function () {
+      var f = document.querySelector('[data-form="inv-new"]'); if (!f) return;
+      var box = f.querySelector("[data-watch-rows]");
+      box.insertAdjacentHTML("beforeend", watchRow(box.children.length + 1));
+      renumber(f);
+    },
+    "rm-watch-row": function (d, el) {
+      var row = el.closest("[data-watch-row]"); if (!row) return;
+      var f = row.closest("form"); row.parentNode.removeChild(row); renumber(f);
+    }
   };
 
   /* ---------- forms ---------- */
@@ -657,12 +703,18 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       var name = val(f, "name"); if (!name) return setErr(f, "Enter a name for the account.");
       var i = { id: uid(), name: name, kind: val(f, "kind"), type: val(f, "type"), holdings: [], tx: [], watch: [] };
       if (i.kind === "Crypto") {
-        var addr = val(f, "addr");
-        if (addr) {
-          if (/^[xyzt]prv/i.test(addr)) return setErr(f, "Do not paste an extended private key (xprv/zprv). Use the xpub/zpub.");
-          if (addr.length < 26) return setErr(f, "Enter a full address or extended public key.");
-          i.watch.push({ id: uid(), chain: val(f, "chain"), addr: addr, last: null });
+        var chain = val(f, "chain");
+        var list = chain === "Bitcoin"
+          ? [].map.call(f.querySelectorAll("[data-btc] [name='w']"), function (x) { return x.value.trim(); }).filter(Boolean)
+          : [f.querySelector("[data-chain-single] [name='w']").value.trim()];
+        if (chain !== "Bitcoin" && !list[0]) return setErr(f, "Enter a watch address.");
+        for (var k = 0; k < list.length; k++) {
+          var a = list[k];
+          if (/^[xyzt]prv/i.test(a)) return setErr(f, "Do not paste an extended private key (xprv/zprv). Use the xpub/zpub.");
+          if (a.length < 26) return setErr(f, "Enter a full address or extended public key.");
+          if (list.indexOf(a) !== k) return setErr(f, "That address is listed more than once.");
         }
+        list.forEach(function (a) { i.watch.push({ id: uid(), chain: chain, addr: a, last: null }); });
       }
       S.data.invest.push(i); persist(); go("inv:" + i.id);
     },
@@ -703,15 +755,16 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
   /* ---------- events ---------- */
   document.addEventListener("click", function (e) {
     var a = e.target.closest("[data-act]");
-    if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a.dataset); return; }
+    if (a && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a.dataset, a); return; }
     var g = e.target.closest("[data-go]");
     if (g) { e.preventDefault(); go(g.dataset.go); }
   });
   document.addEventListener("change", function (e) {
     var el = e.target;
-    if (el.name !== "kind" || !el.form || el.form.dataset.form !== "inv-new") return;
-    var wrap = el.form.querySelector("[data-crypto-only]");
-    if (wrap) wrap.style.display = el.value === "Crypto" ? "grid" : "none";
+    if (!el.form || el.form.dataset.form !== "inv-new") return;
+    if (el.name === "chain") return syncCrypto(el.form);
+    if (el.name !== "kind") return;
+    syncCrypto(el.form);
     var t = el.form.querySelector('[name="type"]');
     if (!t) return;
     var opts = el.value === "Crypto" ? ["Crypto", "Exchange", "Wallet"] : ["Brokerage", "Retirement", "401(k)", "IRA"];
