@@ -38,6 +38,28 @@ describe('InvestmentDetailPage crypto addresses', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Watch address' }))
     expect(await screen.findByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Fetch transactions' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy()
+    expect(screen.getByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv').className).toMatch(/truncate/)
+  })
+
+  it('copies a watched address and shows the full key on hover', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
+    const xpub =
+      'xpub6Bio1js6vQQD89kFTBc7c2vcF5pnjnbmKhyMNKXkEEgh48Yjo39E3ZshRmUC4GwDoFNsSQPSgPNH7RGyh6qCwAzbABo8ZhbDh4UDtTjVEBA'
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByText('Watched addresses')).toBeTruthy()
+    fireEvent.change(screen.getByPlaceholderText('bc1q…, xpub…, or zpub…'), {
+      target: { value: xpub },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Watch address' }))
+    const text = await screen.findByText(xpub)
+    fireEvent.mouseEnter(text)
+    expect(screen.getByRole('tooltip').textContent).toBe(xpub)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy address' }))
+    expect(writeText).toHaveBeenCalledWith(xpub)
+    expect(await screen.findByTitle('Copied')).toBeTruthy()
   })
 
   it('keeps Fetching… after navigating away and back', async () => {
