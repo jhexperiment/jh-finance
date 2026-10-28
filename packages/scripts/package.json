@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "pdf:cli": "set -a && source .env.local && set +a && tsx pdf/cli/pdf.ts",
-    "chain:txs": "set -a && source .env.local && set +a && tsx chain/cli/chain.ts txs"
+    "chain:txs": "set -a && source .env.local && set +a && tsx chain/cli/chain.ts txs",
+    "app:cli": "tsx app/cli/app.ts"
   },
   "dependencies": {
     "commander": "^14.0.2",

@@ -28,7 +28,9 @@
     "prisma:reset:local": "pnpm --filter api prisma:reset:local",
     "client-api-sdk:generate": "pnpm --filter client-api-sdk generate",
     "pdf:cli": "pnpm --filter scripts pdf:cli",
-    "chain:txs": "pnpm --filter scripts chain:txs"
+    "chain:txs": "pnpm --filter scripts chain:txs",
+    "app:cli": "pnpm --filter scripts app:cli",
+    "generate-random-hex": "sh -c 'openssl rand -hex ${1:-16}' sh"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
