@@ -1,9 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Navigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
 import { ActivityForm, RemoveButton } from '@/components/ledger/ActivityForm'
 import { ChainAddressForm } from '@/components/ledger/ChainAddressForm'
 import { HoldingForm } from '@/components/ledger/HoldingForm'
+import { MigrateAccountForm } from '@/components/ledger/MigrateAccountForm'
 import { BarChart } from '@/components/ui/BarChart'
 import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
@@ -15,11 +17,16 @@ import { useInvalidateWorkspace } from '@/lib/workspace'
 
 export function InvestmentDetailPage() {
   const { id = '' } = useParams()
+  const location = useLocation()
   const invalidate = useInvalidateWorkspace()
+  const [migrateOpen, setMigrateOpen] = useState(false)
   const { data, isError } = useQuery({
     queryKey: ['investment', id],
     queryFn: () => api.getInvestment(id),
   })
+  useEffect(() => {
+    setMigrateOpen(false)
+  }, [id])
   const removeHolding = useMutation({
     mutationFn: (holdingId: string) => api.deleteHolding(holdingId),
     onSuccess: () => invalidate(),
@@ -32,6 +39,7 @@ export function InvestmentDetailPage() {
   if (!data) return null
 
   const crumbLabel = data.kind === 'crypto' ? 'Crypto' : 'Investments'
+  const notice = (location.state as { notice?: string } | null)?.notice
 
   return (
     <>
@@ -39,8 +47,22 @@ export function InvestmentDetailPage() {
         crumb={{ to: '/investments', label: crumbLabel, current: data.name.split(',')[0] }}
         title={data.name}
         subtitle={data.subtitle}
-        actions={<GhostButton to={`/investments/${data.id}/edit`}>{data.secondaryAction}</GhostButton>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <GhostButton onClick={() => setMigrateOpen(true)}>Migrate</GhostButton>
+            <GhostButton to={`/investments/${data.id}/edit`}>{data.secondaryAction}</GhostButton>
+          </div>
+        }
       />
+      {notice ? <p className="mt-4 mb-0 text-sm text-gain">{notice}</p> : null}
+      {migrateOpen ? (
+        <MigrateAccountForm
+          accountId={data.id}
+          kind={data.kind}
+          typeLabel={data.typeLabel}
+          onCancel={() => setMigrateOpen(false)}
+        />
+      ) : null}
       <section className="mt-6 grid grid-cols-4 gap-4">
         {data.metrics.map((metric) => (
           <Metric

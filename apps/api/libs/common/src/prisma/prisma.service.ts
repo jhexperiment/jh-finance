@@ -84,12 +84,17 @@ type Delegate<T> = {
   findUnique: (args: { where: { id: string } }) => Promise<T | null>;
   create: (args: { data: Record<string, unknown> }) => Promise<T>;
   update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<T>;
+  updateMany: (args: {
+    where: Record<string, unknown>;
+    data: Record<string, unknown>;
+  }) => Promise<{ count: number }>;
   delete: (args: { where: { id: string } }) => Promise<T>;
 };
 
 export type DomainPrisma = {
   $connect: () => Promise<void>;
   $disconnect: () => Promise<void>;
+  $transaction: <T>(fn: (tx: DomainPrisma) => Promise<T>) => Promise<T>;
   account: Delegate<AccountRecord>;
   transaction: Delegate<TransactionRecord>;
   holding: Delegate<HoldingRecord>;

@@ -6,6 +6,7 @@ import type {
   CreateChainAddressInput,
   CreateHoldingInput,
   CreateTransactionInput,
+  MigrateAccountInput,
   UpdateAccountInput,
   UpdateBillInput,
   UpdateHoldingInput,
@@ -29,6 +30,10 @@ const updateAccountSchema = z.object({
   subtype: z.string().trim().max(80).optional(),
   mask: z.string().trim().max(12).nullable().optional(),
   balance: z.string().optional(),
+});
+
+const migrateAccountSchema = z.object({
+  toAccountId: z.string().min(1),
 });
 
 const createChainAddressSchema = z.object({
@@ -101,6 +106,10 @@ export function parseCreateAccount(body: unknown): CreateAccountInput {
 
 export function parseUpdateAccount(body: unknown): UpdateAccountInput {
   return parse(updateAccountSchema, body);
+}
+
+export function parseMigrateAccount(body: unknown): MigrateAccountInput {
+  return parse(migrateAccountSchema, body);
 }
 
 export function parseCreateTransaction(body: unknown): CreateTransactionInput {

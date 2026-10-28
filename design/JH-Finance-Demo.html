@@ -515,6 +515,23 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       (msg.ok ? '<p class="ok">' + esc(msg.ok) + '</p>' : "") + (msg.err ? '<p class="err">' + esc(msg.err) + '</p>' : "") + '</form></section>';
   }
 
+  function migrateBlock(i) {
+    var targets = S.data.invest.filter(function (x) { return x.id !== i.id && x.kind === i.kind && x.type === i.type; });
+    var body = '<h2>Migrate to another account</h2>' +
+      '<p class="note">Moves holdings, activity, and watched addresses from this account into the one you pick, then removes this account. Both accounts must be ' + esc(i.kind) + " · " + esc(i.type) + '. This records the move only. No money moves.</p>';
+    if (!targets.length) {
+      return '<section class="card stack">' + body + '<p class="note" style="margin-top:14px">There is no other ' + esc(i.type) + ' account to move into yet. Add one first.</p>' +
+        '<div class="frow">' + act("Cancel", "cancel-migrate", "", false) + '</div></section>';
+    }
+    return '<section class="card stack">' + body +
+      '<form data-form="migrate" data-id="' + i.id + '" style="margin-top:16px;max-width:576px">' +
+      '<label class="field"><span>Move into</span><select class="in" name="to">' +
+      targets.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join("") +
+      '</select></label><p class="err"></p>' +
+      '<div class="frow">' + act("Cancel", "cancel-migrate", "", false) +
+      '<button class="btn p" type="submit">Migrate and remove this account</button></div></form></section>';
+  }
+
   function pageInvDetail(i, mode) {
     if (mode === "edit") return phead(esc(i.name), "Edit account", "", '<a data-go="invest">Investments</a> / <a data-go="inv:' + i.id + '">' + esc(i.name) + '</a> / Edit', true) + invForm(i);
     var v = invValue(i), c = invCost(i);
@@ -538,7 +555,8 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       return '<span class="' + (k === i.holdings.length - 1 ? "last" : "") + '" style="height:' + Math.max(4, Math.round(h.value / mx * 144)) + 'px" title="' + esc(h.name) + '"></span>';
     }).join("") + '</div><div class="labels">' + i.holdings.map(function (h) { return '<span>' + esc(h.name.split(" ")[0]) + '</span>'; }).join("") + '</div>'
       : '<div class="note" style="border:1px dashed var(--line);border-radius:12px;padding:40px 16px;text-align:center;margin-top:20px">No holdings yet. Add one below to see the mix.</div>';
-    return phead(esc(i.name), esc(i.type) + " · " + esc(i.kind), btn("Edit account", "inv:" + i.id + ":edit"), crumb, true) + notice() +
+    return phead(esc(i.name), esc(i.type) + " · " + esc(i.kind), act("Migrate", "migrate", ' data-id="' + i.id + '"') + btn("Edit account", "inv:" + i.id + ":edit"), crumb, true) + notice() +
+      (S.migrate && S.migrate.id === i.id ? migrateBlock(i) : "") +
       metrics([
         ["Value", money(v), "Recorded holdings"],
         ["Total gain", c ? signed(v - c) : "—", c ? "Cost basis " + money(c) : "No cost basis recorded", c ? (v - c >= 0 ? "g" : "l") : ""],
@@ -657,6 +675,8 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
     "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
     "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); },
+    "migrate": function (d) { S.migrate = { id: d.id }; S.confirm = null; render(); },
+    "cancel-migrate": function () { S.migrate = null; render(); },
     "copy": function (d, el) {
       var text = d.text || "";
       function done(ok) {
@@ -796,6 +816,23 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       var a = amountOf(f, "amount"); if (isNaN(a)) return setErr(f, "Enter an amount. Use a minus sign for money out.");
       i.tx.unshift({ id: uid(), date: isoToShort(val(f, "date") || "2026-10-27"), desc: desc, amt: a });
       commit("Activity added.");
+    },
+    "migrate": function (f) {
+      var src = find("inv", f.dataset.id); if (!src) return;
+      var dst = find("inv", val(f, "to"));
+      if (!dst || dst.id === src.id || dst.kind !== src.kind || dst.type !== src.type) return setErr(f, "Pick another account with the same kind and type.");
+      var seen = {}, addedW = 0, skippedW = 0;
+      dst.watch.forEach(function (w) { seen[w.addr] = true; });
+      src.watch.forEach(function (w) { if (seen[w.addr]) { skippedW++; } else { dst.watch.push(w); seen[w.addr] = true; addedW++; } });
+      var nH = src.holdings.length, nT = src.tx.length;
+      dst.holdings = dst.holdings.concat(src.holdings);
+      dst.tx = src.tx.concat(dst.tx);
+      S.data.invest = S.data.invest.filter(function (x) { return x.id !== src.id; });
+      S.migrate = null; S.confirm = null;
+      persist();
+      go("inv:" + dst.id);
+      S.notice = "Moved " + nH + " holdings, " + nT + " activity lines, and " + addedW + " watched addresses from " + src.name + (skippedW ? " (" + skippedW + " already watched, skipped)" : "") + ". " + src.name + " was removed.";
+      render();
     },
     "watch-add": function (f) {
       var i = find("inv", f.dataset.id); if (!i) return;

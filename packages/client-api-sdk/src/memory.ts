@@ -5,6 +5,7 @@ import {
   applyCreateHolding,
   applyCreateTransaction,
   applyDeleteChainAddress,
+  applyMigrateAccount,
   applyUpdateAccount,
   applyUpdateBill,
   commitBankStatement,
@@ -75,6 +76,18 @@ export class MemoryLedger {
     this.snapshot.bills = this.snapshot.bills.map((row) =>
       row.paidFromId === id ? { ...row, paidFromId: null } : row,
     )
+  }
+
+  migrateAccount(id: string, toAccountId: string) {
+    try {
+      return applyMigrateAccount(this.snapshot, id, toAccountId)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Migrate failed'
+      if (message === 'Account not found') throw notFound('Account')
+      const wrapped = new Error(message)
+      wrapped.name = 'ApiError'
+      throw wrapped
+    }
   }
 
   createTransaction(input: CreateTransactionInput) {

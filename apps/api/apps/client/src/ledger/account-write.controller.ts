@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patc
 import { ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { LedgerService } from '@libs/common';
 import { projectAccounts } from 'shared';
-import { parseCreateAccount, parseUpdateAccount } from './ledger.dto';
+import { parseCreateAccount, parseMigrateAccount, parseUpdateAccount } from './ledger.dto';
 
 @ApiTags('accounts')
 @Controller('accounts')
@@ -42,5 +42,13 @@ export class AccountWriteController {
   @ApiNoContentResponse({ description: 'Deleted account and its activity/holdings' })
   remove(@Param('id') id: string) {
     return this.ledger.deleteAccount(id);
+  }
+
+  @Post(':id/migrate')
+  @ApiOkResponse({
+    description: 'Moved holdings, activity, and watched addresses, then removed the source account',
+  })
+  migrate(@Param('id') id: string, @Body() body: unknown) {
+    return this.ledger.migrateAccount(id, parseMigrateAccount(body).toAccountId);
   }
 }

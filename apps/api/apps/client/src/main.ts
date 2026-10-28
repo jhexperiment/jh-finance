@@ -13,7 +13,10 @@ async function bootstrap() {
   // Nested Fastify types from @fastify/multipart disagree with Nest's Fastify copy.
   await app.register(require('@fastify/multipart') as never, { limits: { fileSize: 20 * 1024 * 1024 } });
   app.setGlobalPrefix(env.API_PREFIX, { exclude: ['health'] });
-  app.enableCors({ origin: env.WEB_ORIGIN });
+  app.enableCors({
+    origin: env.WEB_ORIGIN,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  });
   setupSwagger(app, 'JH Finance API');
   await app.listen(env.PORT, '0.0.0.0');
   new Logger('client').log(`Listening on ${env.PORT}`);

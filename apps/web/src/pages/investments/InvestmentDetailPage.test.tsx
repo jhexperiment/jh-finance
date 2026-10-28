@@ -134,3 +134,81 @@ describe('InvestmentDetailPage crypto addresses', () => {
     expect(screen.getByText('May 22')).toBeTruthy()
   })
 })
+
+describe('InvestmentDetailPage migrate', () => {
+  beforeEach(() => {
+    resetMemoryClient()
+  })
+
+  it('asks you to add a matching account when none exist', async () => {
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto', subtype: 'Wallet' })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByRole('button', { name: 'Migrate' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
+    expect(await screen.findByText('Migrate to another account')).toBeTruthy()
+    expect(screen.getByText(/Both accounts must be Crypto · Wallet/)).toBeTruthy()
+    expect(
+      await screen.findByText('There is no other Wallet account to move into yet. Add one first.'),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('Migrate to another account')).toBeNull()
+  })
+
+  it('only lists another account of the same kind and type', async () => {
+    const source = await api.createAccount({ name: 'Cold wallet', kind: 'crypto', subtype: 'Wallet' })
+    await api.createAccount({ name: 'Keep wallet', kind: 'crypto', subtype: 'Wallet' })
+    await api.createAccount({ name: 'Exchange', kind: 'crypto', subtype: 'Exchange' })
+    await api.createAccount({ name: 'Brokerage', kind: 'investment', subtype: 'Brokerage' })
+    render(wrap(<InvestmentDetailPage />, `/investments/${source.id}`))
+    fireEvent.click(await screen.findByRole('button', { name: 'Migrate' }))
+    expect(await screen.findByLabelText('Move into')).toBeTruthy()
+    const options = [...screen.getByLabelText('Move into').querySelectorAll('option')].map(
+      (option) => option.textContent,
+    )
+    expect(options).toEqual(['Keep wallet'])
+  })
+
+  it('moves holdings, activity, and unique watched addresses then removes the source', async () => {
+    const source = await api.createAccount({ name: 'Cold wallet', kind: 'crypto', subtype: 'Wallet' })
+    const dest = await api.createAccount({ name: 'Keep wallet', kind: 'crypto', subtype: 'Wallet' })
+    await api.createHolding({
+      accountId: source.id,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      quantity: '1.25',
+      value: '100.00',
+    })
+    await api.createTransaction({
+      accountId: source.id,
+      postedAt: '2017-05-22',
+      description: 'Received',
+      amount: '0.10',
+    })
+    await api.createChainAddress(source.id, {
+      chain: 'btc',
+      address: '1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv',
+    })
+    await api.createChainAddress(source.id, {
+      chain: 'btc',
+      address: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
+    })
+    await api.createChainAddress(dest.id, {
+      chain: 'btc',
+      address: '1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv',
+    })
+    render(wrap(<InvestmentDetailPage />, `/investments/${source.id}`))
+    fireEvent.click(await screen.findByRole('button', { name: 'Migrate' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Migrate and remove this account' }))
+    expect(
+      await screen.findByText(
+        'Moved 1 holdings, 1 activity lines, and 1 watched addresses from Cold wallet (1 already watched, skipped). Cold wallet was removed.',
+      ),
+    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Keep wallet' })).toBeTruthy()
+    expect(screen.getByText('Received')).toBeTruthy()
+    expect(screen.getByText('1.25 BTC')).toBeTruthy()
+    expect(screen.getByText('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')).toBeTruthy()
+    expect(screen.getAllByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv')).toHaveLength(1)
+    await expect(api.getInvestment(source.id)).rejects.toThrow()
+  })
+})

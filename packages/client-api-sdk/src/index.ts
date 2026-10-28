@@ -12,6 +12,8 @@ import {
   type CreateHoldingInput,
   type CreateTransactionInput,
   type InsurancePolicy,
+  type MigrateAccountInput,
+  type MigrateAccountResult,
   type InvestmentAccount,
   type InvestmentsOverview,
   type LedgerAccount,
@@ -55,6 +57,7 @@ export interface ClientApi {
   createAccount: (input: CreateAccountInput) => Promise<LedgerAccount>
   updateAccount: (id: string, input: UpdateAccountInput) => Promise<LedgerAccount>
   deleteAccount: (id: string) => Promise<void>
+  migrateAccount: (id: string, input: MigrateAccountInput) => Promise<MigrateAccountResult>
   createTransaction: (input: CreateTransactionInput) => Promise<LedgerTransaction>
   deleteTransaction: (id: string) => Promise<void>
   createHolding: (input: CreateHoldingInput) => Promise<LedgerHolding>
@@ -132,6 +135,7 @@ function memoryClient(): ClientApi {
     deleteAccount: async (id) => {
       memory.deleteAccount(id)
     },
+    migrateAccount: async (id, input) => memory.migrateAccount(id, input.toAccountId),
     createTransaction: async (input) => memory.createTransaction(input),
     deleteTransaction: async (id) => {
       memory.deleteTransaction(id)
@@ -224,6 +228,7 @@ function liveClient(baseUrl: string): ClientApi {
     createAccount: (input) => sendJson(root, 'POST', '/accounts', input),
     updateAccount: (id, input) => sendJson(root, 'PATCH', `/accounts/${id}`, input),
     deleteAccount: (id) => sendJson(root, 'DELETE', `/accounts/${id}`),
+    migrateAccount: (id, input) => sendJson(root, 'POST', `/accounts/${id}/migrate`, input),
     createTransaction: (input) => sendJson(root, 'POST', '/transactions', input),
     deleteTransaction: (id) => sendJson(root, 'DELETE', `/transactions/${id}`),
     createHolding: (input) => sendJson(root, 'POST', '/holdings', input),

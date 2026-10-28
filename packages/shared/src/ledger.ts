@@ -106,6 +106,21 @@ export interface UpdateAccountInput {
   balance?: string
 }
 
+export interface MigrateAccountInput {
+  toAccountId: string
+}
+
+export interface MigrateAccountResult {
+  destinationId: string
+  destinationKind: AccountKind
+  sourceName: string
+  destinationName: string
+  holdingsMoved: number
+  activityMoved: number
+  addressesMoved: number
+  addressesSkipped: number
+}
+
 export interface CreateTransactionInput {
   accountId: string
   postedAt?: string
@@ -931,6 +946,94 @@ export function applyUpdateAccount(account: LedgerAccount, input: UpdateAccountI
   if (input.balance !== undefined) account.balance = parseMoneyInput(input.balance)
   account.updatedAt = nowIso()
   return account
+}
+
+export function applyMigrateAccount(
+  snapshot: LedgerSnapshot,
+  sourceId: string,
+  toAccountId: string,
+): MigrateAccountResult {
+  const source = snapshot.accounts.find((row) => row.id === sourceId)
+  if (!source) throw new Error('Account not found')
+  const destination = snapshot.accounts.find((row) => row.id === toAccountId)
+  if (
+    !destination ||
+    destination.id === source.id ||
+    destination.kind !== source.kind ||
+    destination.subtype !== source.subtype
+  ) {
+    throw new Error('Pick another account with the same kind and type.')
+  }
+
+  const destWatch = new Set(
+    snapshot.chainAddresses
+      .filter((row) => row.accountId === destination.id)
+      .map((row) => watchKey(row.chain, row.address)),
+  )
+  let addressesMoved = 0
+  let addressesSkipped = 0
+  for (const row of snapshot.chainAddresses) {
+    if (row.accountId !== source.id) continue
+    const key = watchKey(row.chain, row.address)
+    if (destWatch.has(key)) {
+      addressesSkipped += 1
+      continue
+    }
+    row.accountId = destination.id
+    destWatch.add(key)
+    addressesMoved += 1
+  }
+
+  const destExternal = new Set(
+    snapshot.transactions
+      .filter((row) => row.accountId === destination.id && row.externalId)
+      .map((row) => row.externalId as string),
+  )
+  let activityMoved = 0
+  for (const row of snapshot.transactions) {
+    if (row.accountId !== source.id) continue
+    if (row.externalId && destExternal.has(row.externalId)) continue
+    row.accountId = destination.id
+    activityMoved += 1
+  }
+
+  let holdingsMoved = 0
+  for (const row of snapshot.holdings) {
+    if (row.accountId !== source.id) continue
+    row.accountId = destination.id
+    holdingsMoved += 1
+  }
+
+  for (const bill of snapshot.bills) {
+    if (bill.paidFromId === source.id) bill.paidFromId = destination.id
+  }
+
+  snapshot.chainAddresses = snapshot.chainAddresses.filter((row) => row.accountId !== source.id)
+  snapshot.transactions = snapshot.transactions.filter((row) => row.accountId !== source.id)
+  snapshot.holdings = snapshot.holdings.filter((row) => row.accountId !== source.id)
+  snapshot.accounts = snapshot.accounts.filter((row) => row.id !== source.id)
+
+  return {
+    destinationId: destination.id,
+    destinationKind: destination.kind,
+    sourceName: source.name,
+    destinationName: destination.name,
+    holdingsMoved,
+    activityMoved,
+    addressesMoved,
+    addressesSkipped,
+  }
+}
+
+export function formatMigrateNotice(result: MigrateAccountResult): string {
+  const skipped = result.addressesSkipped
+    ? ` (${result.addressesSkipped} already watched, skipped)`
+    : ''
+  return `Moved ${result.holdingsMoved} holdings, ${result.activityMoved} activity lines, and ${result.addressesMoved} watched addresses from ${result.sourceName}${skipped}. ${result.sourceName} was removed.`
+}
+
+function watchKey(chain: string, address: string): string {
+  return `${chain}\0${address}`
 }
 
 export function applyCreateTransaction(snapshot: LedgerSnapshot, input: CreateTransactionInput): LedgerTransaction {

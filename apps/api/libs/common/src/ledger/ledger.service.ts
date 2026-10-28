@@ -22,6 +22,7 @@ import {
   type CreateHoldingInput,
   type CreateTransactionInput,
   type LedgerAccount,
+  type MigrateAccountResult,
   type LedgerBill,
   type LedgerChainAddress,
   type LedgerHolding,
@@ -98,6 +99,76 @@ export class LedgerService {
     const db = this.requireDb();
     await this.requireAccount(id);
     await db.account.delete({ where: { id } });
+  }
+
+  async migrateAccount(sourceId: string, toAccountId: string): Promise<MigrateAccountResult> {
+    const db = this.requireDb();
+    const source = await this.requireAccount(sourceId);
+    const destination = await db.account.findUnique({ where: { id: toAccountId } });
+    if (
+      !destination ||
+      destination.id === source.id ||
+      destination.kind !== source.kind ||
+      destination.subtype !== source.subtype
+    ) {
+      throw new BadRequestException('Pick another account with the same kind and type.');
+    }
+
+    const [sourceHoldings, sourceTxs, sourceWatches, destWatches, destTxs] = await Promise.all([
+      db.holding.findMany({ where: { accountId: sourceId } }),
+      db.transaction.findMany({ where: { accountId: sourceId } }),
+      db.chainAddress.findMany({ where: { accountId: sourceId } }),
+      db.chainAddress.findMany({ where: { accountId: toAccountId } }),
+      db.transaction.findMany({ where: { accountId: toAccountId } }),
+    ]);
+
+    const destWatchKeys = new Set(destWatches.map((row) => `${row.chain}\0${row.address}`));
+    const destExternal = new Set(
+      destTxs.map((row) => row.externalId).filter((value): value is string => Boolean(value)),
+    );
+    const movableWatches = sourceWatches.filter(
+      (row) => !destWatchKeys.has(`${row.chain}\0${row.address}`),
+    );
+    const movableTxs = sourceTxs.filter((row) => !row.externalId || !destExternal.has(row.externalId));
+
+    await db.$transaction(async (tx) => {
+      if (movableWatches.length > 0) {
+        await tx.chainAddress.updateMany({
+          where: { id: { in: movableWatches.map((row) => row.id) } },
+          data: { accountId: toAccountId },
+        });
+      }
+      if (movableTxs.length > 0) {
+        await tx.transaction.updateMany({
+          where: { id: { in: movableTxs.map((row) => row.id) } },
+          data: { accountId: toAccountId },
+        });
+      }
+      await tx.holding.updateMany({
+        where: { accountId: sourceId },
+        data: { accountId: toAccountId },
+      });
+      await tx.document.updateMany({
+        where: { accountId: sourceId },
+        data: { accountId: toAccountId },
+      });
+      await tx.bill.updateMany({
+        where: { paidFromId: sourceId },
+        data: { paidFromId: toAccountId },
+      });
+      await tx.account.delete({ where: { id: sourceId } });
+    });
+
+    return {
+      destinationId: destination.id,
+      destinationKind: PRISMA_KIND_TO_ACCOUNT[destination.kind] ?? 'bank',
+      sourceName: source.name,
+      destinationName: destination.name,
+      holdingsMoved: sourceHoldings.length,
+      activityMoved: movableTxs.length,
+      addressesMoved: movableWatches.length,
+      addressesSkipped: sourceWatches.length - movableWatches.length,
+    };
   }
 
   async createTransaction(input: CreateTransactionInput): Promise<LedgerTransaction> {
