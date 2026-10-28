@@ -26,7 +26,9 @@ export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${controlClass} ${props.className ?? ''}`} />
+  return (
+    <select {...props} className={`${controlClass} select-input ${props.className ?? ''}`} />
+  )
 }
 
 export function FormGrid({ children }: { children: ReactNode }) {
