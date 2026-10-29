@@ -131,6 +131,13 @@ export interface WatchedChainAddress {
   lastSyncAt?: string | null
 }
 
+export interface HoldingToken {
+  symbol: string
+  quantity: string
+  value: string
+  costBasis: string
+}
+
 export interface Holding {
   id: string
   name: string
@@ -144,6 +151,12 @@ export interface Holding {
   dayTone: Tone
   totalGain: string
   totalGainTone: Tone
+  symbol?: string
+  quantity?: string
+  costBasis?: string
+  chain?: string
+  tokens?: HoldingToken[]
+  canRemove?: boolean
 }
 
 export interface InvestmentAccount extends AccountSummary {
@@ -162,6 +175,7 @@ export interface InvestmentAccount extends AccountSummary {
   details: KeyValue[]
   mix?: AllocationSlice[]
   holdings: Holding[]
+  holdingGroups?: Holding[]
   activity: ActivityRow[]
   chainAddresses?: WatchedChainAddress[]
   extraTables?: { title: string; columns: string[]; rows: string[][] }[]

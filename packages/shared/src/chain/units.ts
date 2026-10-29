@@ -21,6 +21,10 @@ export function isoFromUnixSeconds(seconds: string | number): string {
   return new Date(Number(seconds) * 1000).toISOString()
 }
 
+export function isoFromUnixMillis(ms: string | number): string {
+  return new Date(Number(ms)).toISOString()
+}
+
 export function sameAddress(left: string, right: string): boolean {
   return left.toLowerCase() === right.toLowerCase()
 }

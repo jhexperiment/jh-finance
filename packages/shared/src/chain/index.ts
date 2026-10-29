@@ -13,16 +13,35 @@ import { fetchXrpTransactions } from './xrp'
 
 export {
   CHAINS,
+  CHAIN_LABEL,
+  CHAIN_PLACEHOLDER,
   IndexerError,
+  NATIVE_TICKER,
   isChain,
   type Chain,
   type ChainTx,
   type FetchLike,
   type IndexerOptions,
 } from './types'
+export {
+  DEX_VENUES,
+  dexAssetsFromHoldings,
+  dexMatchesForHoldings,
+  dexUnsupportedHoldings,
+  type DexAsset,
+  type DexVenue,
+  type DexVenueMatch,
+} from './dex'
 export { ESPLORA_URLS, fetchEsploraTransactions, fetchLitecoinTransactions } from './esplora'
 export { BLOCKBOOK_LTC_URL, fetchBlockbookTransactions } from './blockbook'
-export { ETH_BLOCKSCOUT_URL, ETHERSCAN_V2_URL, fetchBnbTransactions, fetchEthTransactions } from './evm'
+export {
+  BINPLORER_URL,
+  BNB_BEACON_URL,
+  ETH_BLOCKSCOUT_URL,
+  ETHERSCAN_V2_URL,
+  fetchBnbTransactions,
+  fetchEthTransactions,
+} from './evm'
 export { XRPL_URL, fetchXrpTransactions } from './xrp'
 export {
   BLOCKDAEMON_HORIZON_URL,
@@ -91,6 +110,7 @@ export async function fetchAddressTransactions(
     case 'eth':
       return fetchEthTransactions(address, options)
     case 'bnb':
+    case 'bsc':
       return fetchBnbTransactions(address, options)
     case 'xrp':
       return fetchXrpTransactions(address, options)

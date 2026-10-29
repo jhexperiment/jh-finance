@@ -265,7 +265,25 @@ export class IngestService {
     let skippedCount = 0;
     for (const tx of txs) {
       const input = toCreateTransactionInput(watched.accountId, tx);
-      if (!input.externalId || existing.has(input.externalId)) {
+      if (!input.externalId) {
+        skippedCount += 1;
+        continue;
+      }
+      const stored = snapshot.transactions.find((row) => row.externalId === input.externalId);
+      if (stored) {
+        if (tx.txid.startsWith('bsc-balance:') && stored.amount !== input.amount) {
+          await this.ledger.updateTransaction(stored.id, {
+            amount: input.amount,
+            description: input.description,
+          });
+          stored.amount = input.amount;
+          importedCount += 1;
+        } else {
+          skippedCount += 1;
+        }
+        continue;
+      }
+      if (existing.has(input.externalId)) {
         skippedCount += 1;
         continue;
       }

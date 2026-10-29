@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { CHAINS, type AccountKind, type Chain } from 'shared'
+import { CHAINS, CHAIN_LABEL, CHAIN_PLACEHOLDER, type AccountKind, type Chain } from 'shared'
 import { api } from '@/api/client'
 import { RemoveButton } from '@/components/ledger/ActivityForm'
 import { Card } from '@/components/ui/Card'
@@ -56,14 +56,7 @@ const kindLabel: Record<AccountKind, string> = {
   crypto: 'Crypto',
 }
 
-const chainLabel: Record<Chain, string> = {
-  btc: 'Bitcoin',
-  ltc: 'Litecoin',
-  eth: 'Ethereum',
-  bnb: 'BNB Chain',
-  xrp: 'XRP',
-  xlm: 'Stellar',
-}
+const chainLabel = CHAIN_LABEL
 
 type AddressDraft = { key: string; address: string }
 
@@ -82,11 +75,8 @@ function bitcoinAddresses(): AddressDraft[] {
 }
 
 function addressPlaceholder(chain: Chain, index: number): string {
-  if (chain === 'btc') return bitcoinPlaceholders[index] ?? 'bc1q…, xpub…, or zpub…'
-  if (chain === 'ltc') return 'ltc1… or Ltub…'
-  if (chain === 'eth' || chain === 'bnb') return '0x…'
-  if (chain === 'xrp') return 'r…'
-  return 'G…'
+  if (chain === 'btc') return bitcoinPlaceholders[index] ?? CHAIN_PLACEHOLDER.btc
+  return CHAIN_PLACEHOLDER[chain]
 }
 
 function accountHref(kind: AccountKind, id: string): string {

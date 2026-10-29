@@ -82,6 +82,9 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
 .tip{position:fixed;z-index:50;max-width:360px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.4;color:var(--ink);word-break:break-all;box-shadow:0 6px 20px rgba(26,29,33,.12);pointer-events:none}
 .copy{flex:none;width:30px;height:30px;padding:0;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer}
 .copy:hover{color:var(--ink)}
+.caret{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;margin-right:8px;vertical-align:middle;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);cursor:pointer}
+.caret:hover{color:var(--ink)}
+.caret svg{display:block;transition:transform .15s}
 .confirm{border-color:var(--loss)}
 .flex{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
 .footer{margin-top:32px;font-size:13px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -114,7 +117,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
   /* ---------- helpers ---------- */
   var TODAY = "Oct 27, 2026";
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  var SYM = { "Bitcoin":"BTC", "Litecoin":"LTC", "Ethereum":"ETH", "BNB Chain":"BNB", "XRP":"XRP", "Stellar":"XLM" };
+  var SYM = { "Bitcoin":"BTC", "Litecoin":"LTC", "Ethereum":"ETH", "BNB Beacon Chain":"BNB", "BNB Smart Chain":"BNB", "XRP":"XRP", "Stellar":"XLM" };
   var CHAINS = Object.keys(SYM);
   var BILL_STATUS = ["Upcoming","Due","Paid","Scheduled","Autopay"];
 
@@ -130,7 +133,16 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
 
   /* ---------- data ---------- */
   function seed() {
+    function tokenTxs(date, chain, list) {
+      return list.map(function (s) {
+        var sym = s.split(" ")[1];
+        return { id: uid(), key: "seed:" + chain + ":" + sym, chain: chain, date: date, desc: "Token balance, " + sym, units: s, amt: null };
+      });
+    }
     function tx(date, desc, cat, amt, extra) { var t = { id: uid(), date: date, desc: desc, cat: cat || "", amt: amt }; if (extra) for (var k in extra) t[k] = extra[k]; return t; }
+    var ETH_TOKENS = [
+      "16888 AZ", "12287 EVO", "1020.55533042 GNT", "1000 CNX", "911 HEALP", "400 ONOT", "254.84371044 XNN", "197.102197 USDT", "150.8438 KEOS", "150.8437831 EOS", "75.4219 MEET.ONE", "28.06767956 VIU", "25 ETU", "16 ETP", "16 SOP", "10 ALB", "7.77 VIN", "5 OCN", "2.11745845 LPT", "2 FNKOS", "2 EKT", "1.078 DRCT", "1 DACC", "1 MITx", "1 AMM", "0.13764822 XDATA", "0.11352087 OMG", "0.0001 yRise", "0.00000005 REP"
+    ];
     return {
       cards: [
         { id:"c1", name:"Platinum", type:"Credit card", last4:"4821", balance:2318.44, due:"Nov 12", limit:12000, apr:"23.99%", tx:[
@@ -159,10 +171,12 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
           holdings:[ hold("Total US stock index ETF","","84.59",34880.15,28177.25) ] },
         { id:"i3", name:"Brokerage B, company shares", kind:"Investment", type:"Brokerage", watch:[], tx:[ tx("Aug 15","RSU vest, 14 shares, 40% sold to cover taxes","RSU",2179.2) ],
           holdings:[ hold("Company shares","","42",16450,11332) ] },
-        { id:"i4", name:"Cold wallet", kind:"Crypto", type:"Wallet", tx:[ tx("Oct 2","Received from exchange account","Transfer",3540) ],
+        { id:"i4", name:"Cold wallet", kind:"Crypto", type:"Wallet", tx:[ tx("Oct 2","Received from exchange account","Transfer",3540) ].concat(tokenTxs("Oct 27", "Ethereum", ETH_TOKENS)),
           watch:[ { id:"w1", chain:"Bitcoin", addr:"bc1q7x2mq4r8f0kz3w6e5n2p1d9c7v0t8s9c4e", last:TODAY } ],
           holdings:[ hold("Bitcoin","BTC","0.142",12930,14134.8) ] },
-        { id:"i5", name:"Exchange account", kind:"Crypto", type:"Exchange", tx:[ tx("Sep 3","Buy, funded by bank transfer","Buy",850) ],
+        { id:"i5", name:"Exchange account", kind:"Crypto", type:"Exchange", tx:[ tx("Sep 3","Buy, funded by bank transfer","Buy",850) ].concat(tokenTxs("Oct 27", "Ethereum", [
+            "16888 AZ", "12287 EVO", "1020.55533042 GNT", "1000 CNX", "911 HEALP", "400 ONOT", "254.84371044 XNN", "197.102197 USDT", "150.8438 KEOS", "150.8437831 EOS", "75.4219 MEET.ONE", "28.06767956 VIU", "25 ETU", "16 ETP", "16 SOP", "10 ALB", "7.77 VIN", "5 OCN", "2.11745845 LPT", "2 FNKOS", "2 EKT", "1.078 DRCT", "1 DACC", "1 MITx", "1 AMM", "0.13764822 XDATA", "0.11352087 OMG", "0.0001 yRise", "0.00000005 REP"
+          ])),
           watch:[ { id:"w2", chain:"Ethereum", addr:"0x4b1f9a2c7e8d03f5a6b9c1e2d4f7a0b3c8e5d9f1", last:"Oct 26, 2026" },
                   { id:"w3", chain:"Bitcoin", addr:"3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy", last:null } ],
           holdings:[ hold("Ether","ETH","2.6",4352.1,5052.1) ] }
@@ -180,8 +194,9 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     function hold(name, sym, qty, value, cost) { return { id: uid(), name: name, sym: sym, qty: qty, value: value, cost: cost }; }
   }
 
-  function load() { try { var v = localStorage.getItem("jhdemo.v1"); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
-  function persist() { try { localStorage.setItem("jhdemo.v1", JSON.stringify(S.data)); } catch (e) {} }
+  var STORE_KEY = "jhdemo.v2";
+  function load() { try { var v = localStorage.getItem(STORE_KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S.data)); } catch (e) {} }
 
   var S = { data: load() || seed(), route: "overview", notice: "", confirm: null, pending: null, watchMsg: {}, reading: null };
 
@@ -437,7 +452,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
   }
 
   var BTC_PH = ["xpub… (legacy 1…)", "zpub… (SegWit bc1q…)", "zpub… (Taproot bc1p…)"];
-  var SINGLE_PH = { "Litecoin": "ltc1… or Ltub…", "Ethereum": "0x…", "BNB Chain": "0x…", "XRP": "r…", "Stellar": "G…" };
+  var SINGLE_PH = { "Litecoin": "ltc1… or Ltub…", "Ethereum": "0x…", "BNB Beacon Chain": "bnb1…", "BNB Smart Chain": "0x…", "XRP": "r…", "Stellar": "G…" };
   function watchRow(n) {
     return '<div data-watch-row style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end">' +
       '<label class="field"><span>Watch ' + n + '</span><input class="in" name="w" placeholder="' + esc(BTC_PH[n - 1] || "xpub… or zpub…") + '"></label>' +
@@ -513,9 +528,18 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       var cell = '<div class="addrcell"><span class="addrtxt num" data-full="' + esc(w.addr) + '">' + esc(w.addr) + '</span>' +
         '<button class="copy" type="button" data-act="copy" data-text="' + esc(w.addr) + '" aria-label="Copy address" title="Copy address">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>';
-      return '<tr><td>' + esc(w.chain) + '</td><td>' + cell + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
+      var subs = [];
+      var open = !!(S.openHold && S.openHold[w.id]);
+      var caret = subs.length
+        ? caretBtn(w.id, open)
+        : "";
+      var chainCell = caret + esc(w.chain) + (subs.length ? ' <span class="lbl">· ' + subs.length + (subs.length === 1 ? " token" : " tokens") + '</span>' : "");
+      var subRows = open && subs.length ? '<tr><th style="padding-left:40px">Token</th><th></th><th>Balance</th><th></th></tr>' + subs.map(function (p) {
+        return '<tr><td style="padding-left:40px" class="lbl">' + esc(p.unit) + '</td><td></td><td class="lbl">' + fmtQty(p.qty) + '</td><td></td></tr>';
+      }).join("") : "";
+      return '<tr><td>' + chainCell + '</td><td>' + cell + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
         (pending ? '<button class="btn spin" type="button" disabled>Fetching…</button>' : act("Fetch transactions", "fetch", ' data-owner="' + i.id + '" data-id="' + w.id + '"')) +
-        '<button class="rm" type="button" data-act="confirm-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>';
+        '<button class="rm" type="button" data-act="confirm-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>' + subRows;
     }).join("") : "";
     return '<section class="card stack"><h2>Watched addresses</h2><p class="sub" style="margin-top:4px;font-size:13px">Public receive addresses or HD xpub/ypub/zpub. Do not paste a seed phrase or private key.</p>' +
       (i.watch.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Chain</th><th>Address</th><th>Last fetch</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
@@ -525,6 +549,55 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       field("addr", "Address", { ph: "bc1q…, xpub…, or zpub…", hint: "One address, or an Exodus xpub/zpub. Native SegWit and Taproot are separate zpubs." }) +
       '</div><div style="margin-top:14px"><button class="btn p" type="submit">Watch address</button></div>' +
       (msg.ok ? '<p class="ok">' + esc(msg.ok) + '</p>' : "") + (msg.err ? '<p class="err">' + esc(msg.err) + '</p>' : "") + '</form></section>';
+  }
+
+  function fmtQty(q) {
+    var s = Number(q).toFixed(8).replace(/\.?0+$/, "");
+    return s === "" || s === "-0" ? "0" : s;
+  }
+  function nativeParts(i, filt) {
+    var net = {}, order = [];
+    i.tx.forEach(function (t) {
+      if (filt && !filt(t)) return;
+      var m = /^([+-]?\d*\.?\d+)\s+(\S+)$/.exec(String(t.units || "").trim());
+      if (!m) return;
+      var q = parseFloat(m[1]), s = m[2];
+      if (!isFinite(q)) return;
+      if (!Object.prototype.hasOwnProperty.call(net, s)) { net[s] = 0; order.push(s); }
+      net[s] += q;
+    });
+    return order.map(function (s) { return { qty: net[s], unit: s }; }).filter(function (p) { return Math.abs(p.qty) > 1e-9; });
+  }
+  function chainOfSym(sym) {
+    return Object.keys(SYM).filter(function (c) { return SYM[c] === sym; })[0] || null;
+  }
+  function caretBtn(id, open) {
+    return '<button class="caret" type="button" data-act="toggle-sub" data-id="' + id + '" aria-expanded="' + open + '" aria-label="' + (open ? "Collapse" : "Expand") + ' tokens">' +
+      '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" style="transform:rotate(' + (open ? 90 : 0) + 'deg)"><path d="M3 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+  }
+  function holdingRow(i, h) {
+    var chain = chainOfSym(h.sym);
+    var subs = chain ? nativeParts(i, function (t) { return t.chain === chain; }).filter(function (p) { return p.unit !== h.sym; }) : [];
+    var open = !!(S.openHold && S.openHold[h.id]);
+    var caret = subs.length
+      ? caretBtn(h.id, open)
+      : '';
+    var row = '<tr><td>' + caret + esc(h.name) + (subs.length ? ' <span class="lbl">· ' + subs.length + (subs.length === 1 ? " token" : " tokens") + '</span>' : '') + '</td>' +
+      '<td class="lbl">' + esc(h.sym || "—") + '</td><td class="r">' + esc(h.qty || "—") + '</td><td class="r">' + money(h.value) + '</td><td class="r">' + (h.cost ? money(h.cost) : "—") + '</td>' +
+      '<td class="r"><button class="rm" type="button" data-act="del-holding" data-owner="' + i.id + '" data-id="' + h.id + '">Remove</button></td></tr>';
+    if (!open || !subs.length) return row;
+    return row + subs.map(function (p) {
+      return '<tr><td style="padding-left:40px" class="lbl">' + esc(p.unit) + ' token</td><td class="lbl">' + esc(p.unit) + '</td><td class="r">' + fmtQty(p.qty) + '</td><td class="r lbl">—</td><td class="r lbl">—</td><td></td></tr>';
+    }).join("");
+  }
+  function tokenCard(i) {
+    var parts = nativeParts(i).sort(function (a, b) { return Math.abs(b.qty) - Math.abs(a.qty); });
+    var body = parts.length
+      ? '<div style="overflow-x:auto"><table><thead><tr><th>Asset</th><th class="r">Balance</th></tr></thead><tbody>' +
+        parts.map(function (p) { return '<tr><td><strong>' + esc(p.unit) + '</strong></td><td class="r">' + fmtQty(p.qty) + '</td></tr>'; }).join("") +
+        '</tbody></table></div>'
+      : '<p class="note">No token balances from recorded activity yet. Fetch a watched address to pull them in.</p>';
+    return '<section class="card stack"><h2>Token balances</h2><p class="note" style="margin-top:4px">Native amounts from recorded activity. Not USD.</p>' + body + '</section>';
   }
 
   function migrateBlock(i) {
@@ -547,13 +620,12 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
   function pageInvDetail(i, mode) {
     if (mode === "edit") return phead(esc(i.name), "Edit account", "", '<a data-go="invest">Investments</a> / <a data-go="inv:' + i.id + '">' + esc(i.name) + '</a> / Edit', true) + invForm(i);
     var v = invValue(i), c = invCost(i);
-    var crumb = '<a data-go="invest">Investments</a> / ' + esc(i.name);
-    var kv = [["Kind", esc(i.kind)], ["Type", esc(i.type)], ["Currency", "USD"]];
+    var crumb = '<a data-go="invest">Investments</a> / ' + esc(i.name);    var kv = [["Kind", esc(i.kind)], ["Type", esc(i.type)], ["Currency", "USD"]];
     if (i.kind === "Crypto" && i.watch.length) kv.push(["Watched addresses", i.watch.length + (i.watch.length === 1 ? " address" : " addresses")]);
     var total = Math.max(v, 1);
     var hold = i.holdings.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Symbol</th><th class="r">Quantity</th><th class="r">Value</th><th class="r">Cost basis</th><th></th></tr></thead><tbody>' +
       i.holdings.map(function (h) {
-        return '<tr><td>' + esc(h.name) + '</td><td class="lbl">' + esc(h.sym || "—") + '</td><td class="r">' + esc(h.qty || "—") + '</td><td class="r">' + money(h.value) + '</td><td class="r">' + (h.cost ? money(h.cost) : "—") + '</td><td class="r"><button class="rm" type="button" data-act="del-holding" data-owner="' + i.id + '" data-id="' + h.id + '">Remove</button></td></tr>';
+        return holdingRow(i, h);
       }).join("") + '</tbody></table></div>' : '<p class="note">No holdings on this account yet.</p>';
     var hForm = '<form data-form="hold-add" data-id="' + i.id + '" class="inline" style="grid-template-columns:repeat(5,minmax(0,1fr)) auto">' +
       field("name", "Name", { ph: "Holding name", req: true }) + field("sym", "Symbol (optional)", { ph: "VTI" }) +
@@ -676,9 +748,10 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
           { key: w.id + ":in", date: "Oct 27", desc: "Received 0.040 " + sym + " from " + short(w.addr), units: "+0.040 " + sym, amt: sym === "BTC" ? 3540 : null },
           { key: w.id + ":out", date: "Oct 27", desc: "Sent 0.010 " + sym + " to " + short(other), units: "-0.010 " + sym, amt: sym === "BTC" ? -1405 : null }
         ];
+        if (w.chain === "Ethereum") samples.push({ key: w.id + ":usdt", date: "Oct 27", desc: "Received 120 USDT from " + short(w.addr), units: "+120 USDT", amt: null });
         var have = {}; i.tx.forEach(function (t) { if (t.key) have[t.key] = true; });
         var added = 0;
-        samples.forEach(function (s) { if (!have[s.key]) { i.tx.unshift({ id: uid(), key: s.key, date: s.date, desc: s.desc, units: s.units, amt: s.amt }); added++; } });
+        samples.forEach(function (s) { if (!have[s.key]) { i.tx.unshift({ id: uid(), key: s.key, chain: w.chain, date: s.date, desc: s.desc, units: s.units, amt: s.amt }); added++; } });
         w.last = TODAY;
         S.pending = null;
         S.watchMsg[i.id] = { ok: "Fetched " + samples.length + ", imported " + added + " new, skipped " + (samples.length - added) + " already stored.", err: "" };
@@ -690,6 +763,11 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
     "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
     "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); },
+    "toggle-sub": function (d) {
+      S.openHold = S.openHold || {};
+      S.openHold[d.id] = !S.openHold[d.id];
+      render();
+    },
     "confirm-watch": function (d) { S.confirm = { kind: "watch", id: d.id, owner: d.owner }; render(); },
     "migrate": function (d) { S.migrate = { id: d.id }; S.confirm = null; render(); },
     "cancel-migrate": function () { S.migrate = null; render(); },

@@ -1,5 +1,7 @@
+import { CHAINS, CHAIN_LABEL, NATIVE_TICKER, isChain, type Chain } from './chain/types'
 import { assertWatchableKey } from './chain/xpub-key'
 import { formatUsd, money, sum } from './money'
+import { coinNameFor, quoteTicker } from './price/ids'
 import type {
   AccountGroup,
   AccountKind,
@@ -13,6 +15,7 @@ import type {
   CardAccount,
   CardsOverview,
   Holding,
+  HoldingToken,
   InsurancePolicy,
   InvestmentAccount,
   InvestmentsOverview,
@@ -352,12 +355,6 @@ function holdingQuantityTotal(rows: LedgerHolding[]): string | null {
     .join(' · ')
 }
 
-function accountHoldingCount(txs: LedgerTransaction[], holdings: LedgerHolding[]): number {
-  const chain = chainAssetTotals(txs).filter((row) => !row.amount.isZero())
-  if (chain.length > 0) return chain.length
-  return holdings.length
-}
-
 function accountHoldingTotal(
   account: LedgerAccount,
   txs: LedgerTransaction[],
@@ -525,9 +522,34 @@ export function projectBanks(snapshot: LedgerSnapshot): BankAccount[] {
   return snapshot.accounts.filter((account) => account.kind === 'bank').map((account) => projectBank(account, snapshot))
 }
 
+function formatQty(value: string): string {
+  const amount = money(value)
+  if (!amount.isFinite() || amount.isZero()) return '0'
+  return amount.toFixed(8).replace(/\.?0+$/, '') || '0'
+}
+
+function nativeChainForTicker(ticker: string): Chain | null {
+  const key = quoteTicker(ticker)
+  return CHAINS.find((chain) => NATIVE_TICKER[chain] === key) ?? null
+}
+
+function uniqueNativeChain(ticker: string): Chain | null {
+  const key = quoteTicker(ticker)
+  const matches = CHAINS.filter((chain) => NATIVE_TICKER[chain] === key)
+  return matches.length === 1 ? matches[0] : null
+}
+
+function transactionChain(row: LedgerTransaction): Chain | null {
+  if (row.externalId?.includes('bsc-balance:') || row.externalId?.startsWith('bsc:')) return 'bsc'
+  const prefix = row.externalId?.split(':')[0]
+  if (prefix && isChain(prefix)) return prefix
+  return nativeChainForTicker(row.asset ?? '')
+}
+
 function projectHolding(row: LedgerHolding, account: LedgerAccount, totalValue: number): Holding {
   const gain = money(row.value).minus(row.costBasis)
   const share = totalValue > 0 ? `${Math.round((money(row.value).toNumber() / totalValue) * 100)}%` : '—'
+  const symbol = row.symbol?.trim() || quoteTicker(row.name) || undefined
   return {
     id: row.id,
     name: row.name,
@@ -541,6 +563,151 @@ function projectHolding(row: LedgerHolding, account: LedgerAccount, totalValue: 
     dayTone: 'muted',
     totalGain: formatUsd(gain, { sign: 'always' }),
     totalGainTone: gainTone(gain.toString()),
+    symbol,
+    quantity: formatQty(row.quantity),
+    costBasis: formatUsd(row.costBasis),
+    canRemove: true,
+  }
+}
+
+function chainAssetsByChain(rows: LedgerTransaction[]): Map<Chain, { ticker: string; amount: ReturnType<typeof money> }[]> {
+  const nested = new Map<Chain, Map<string, ReturnType<typeof money>>>()
+  const unassigned: { ticker: string; amount: string }[] = []
+  for (const row of rows) {
+    const ticker = quoteTicker(row.asset)
+    if (!ticker) continue
+    const chain = transactionChain(row)
+    if (!chain) {
+      unassigned.push({ ticker, amount: row.amount })
+      continue
+    }
+    const byTicker = nested.get(chain) ?? new Map()
+    byTicker.set(ticker, (byTicker.get(ticker) ?? money(0)).plus(row.amount))
+    nested.set(chain, byTicker)
+  }
+  const fallback: Chain | undefined = nested.has('eth')
+    ? 'eth'
+    : nested.has('bsc')
+      ? 'bsc'
+      : nested.has('bnb')
+        ? 'bnb'
+        : nested.has('xlm')
+          ? 'xlm'
+          : nested.has('xrp')
+            ? 'xrp'
+            : undefined
+  if (fallback) {
+    const byTicker = nested.get(fallback) ?? new Map()
+    for (const row of unassigned) {
+      if (nativeChainForTicker(row.ticker)) continue
+      byTicker.set(row.ticker, (byTicker.get(row.ticker) ?? money(0)).plus(row.amount))
+    }
+    nested.set(fallback, byTicker)
+  }
+  const out = new Map<Chain, { ticker: string; amount: ReturnType<typeof money> }[]>()
+  for (const [chain, byTicker] of nested) {
+    out.set(
+      chain,
+      [...byTicker.entries()]
+        .map(([ticker, amount]) => ({ ticker, amount }))
+        .filter((row) => !row.amount.isZero())
+        .sort((left, right) => right.amount.abs().comparedTo(left.amount.abs())),
+    )
+  }
+  return out
+}
+
+function projectHoldingGroups(
+  account: LedgerAccount,
+  holdingRows: LedgerHolding[],
+  txRows: LedgerTransaction[],
+  totalValue: number,
+): Holding[] {
+  const projected = holdingRows.map((row) => projectHolding(row, account, totalValue))
+  if (account.kind !== 'crypto') return projected
+
+  const byTicker = new Map<string, Holding>()
+  for (const holding of projected) {
+    const ticker = quoteTicker(holding.symbol || holding.name)
+    if (ticker && !byTicker.has(ticker)) byTicker.set(ticker, holding)
+  }
+  const assets = chainAssetsByChain(txRows)
+  const nestedTickers = new Set<string>()
+  const groups: Holding[] = []
+  const used = new Set<string>()
+
+  for (const chain of CHAINS) {
+    const rows = assets.get(chain) ?? []
+    if (rows.length === 0) continue
+    const native = NATIVE_TICKER[chain]
+    const tokens = rows.filter((row) => row.ticker !== native)
+    const nativeRow = rows.find((row) => row.ticker === native)
+    if (tokens.length === 0 && !nativeRow && !byTicker.has(native)) continue
+    for (const token of tokens) nestedTickers.add(token.ticker)
+    const lot = nativeLotForChain(chain, native, assets, byTicker, used)
+    const quantity = nativeRow ? formatQty(nativeRow.amount.toString()) : lot?.quantity ?? '0'
+    groups.push({
+      ...(lot ?? {
+        id: `chain:${chain}`,
+        name: coinNameFor(native),
+        detail: `${quantity} ${native}`,
+        accountId: account.id,
+        accountName: account.name,
+        type: 'Holding',
+        share: '—',
+        value: '—',
+        dayPct: '—',
+        dayTone: 'muted',
+        totalGain: '—',
+        totalGainTone: 'muted',
+        canRemove: false,
+      }),
+      name: chain === 'bnb' || chain === 'bsc' ? CHAIN_LABEL[chain] : (lot?.name ?? coinNameFor(native)),
+      symbol: native,
+      quantity,
+      chain,
+      tokens: tokens.map((row) => holdingToken(row.ticker, row.amount.toString(), byTicker.get(row.ticker))),
+    })
+  }
+
+  for (const holding of projected) {
+    if (used.has(holding.id)) continue
+    const ticker = quoteTicker(holding.symbol || holding.name)
+    if (ticker && nestedTickers.has(ticker)) continue
+    const chain = uniqueNativeChain(ticker)
+    groups.push(chain ? { ...holding, chain } : holding)
+  }
+  return groups
+}
+
+function nativeLotForChain(
+  chain: Chain,
+  native: string,
+  assets: Map<Chain, { ticker: string; amount: ReturnType<typeof money> }[]>,
+  byTicker: Map<string, Holding>,
+  used: Set<string>,
+): Holding | undefined {
+  const lot = byTicker.get(native)
+  if (!lot || used.has(lot.id)) return undefined
+  const peers = CHAINS.filter((row) => NATIVE_TICKER[row] === native)
+  if (peers.length > 1) {
+    const amountOn = (key: Chain) =>
+      assets.get(key)?.find((row) => row.ticker === native)?.amount.abs() ?? money(0)
+    const best = peers.reduce((winner, candidate) =>
+      amountOn(candidate).greaterThan(amountOn(winner)) ? candidate : winner,
+    )
+    if (best !== chain) return undefined
+  }
+  used.add(lot.id)
+  return lot
+}
+
+function holdingToken(ticker: string, quantity: string, lot?: Holding): HoldingToken {
+  return {
+    symbol: ticker,
+    quantity: formatQty(quantity),
+    value: lot ? lot.value : '—',
+    costBasis: lot ? lot.costBasis ?? '—' : '—',
   }
 }
 
@@ -560,16 +727,15 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
   const holdings = holdingRows.map((row) => projectHolding(row, account, value.toNumber()))
   const txRows = txnsFor(snapshot, account.id)
   const activity = txRows.map((row) => toActivityRow(row, account.name))
+  const holdingGroups = projectHoldingGroups(account, holdingRows, txRows, value.toNumber())
   const chainTotals = chainAssetTotals(txRows)
-  const chainHeld = chainTotals.filter((row) => !row.amount.isZero())
   const holdingTotal = accountHoldingTotal(account, txRows, holdingRows)
-  const holdingCount = accountHoldingCount(txRows, holdingRows)
   const chainAddresses = chainAddressesFor(snapshot, account.id)
   const mix = slicesFrom(holdingRows.map((row) => ({ label: row.name, value: money(row.value).toNumber() })))
   return {
     ...toAccountSummary(account),
     kind: account.kind === 'crypto' ? 'crypto' : 'investment',
-    extra: countLabel(holdingCount, 'holding'),
+    extra: countLabel(holdingGroups.length, 'holding'),
     value: formatUsd(value),
     holdingTotal: holdingTotal ?? formatUsd(value),
     share: undefined,
@@ -579,7 +745,7 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
     totalGainTone: holdingRows.length > 0 ? gainTone(gain.toString()) : 'muted',
     costBasis: holdingRows.length > 0 ? formatUsd(cost) : '—',
     metrics: [
-      { label: 'Value', value: holdingTotal ?? formatUsd(value), hint: account.subtype },
+      { label: 'Value', value: formatUsd(value), hint: 'Recorded holdings' },
       {
         label: 'Total gain',
         value: holdingRows.length > 0 ? formatUsd(gain, { sign: 'always' }) : '—',
@@ -588,8 +754,8 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
       },
       {
         label: 'Holdings',
-        value: String(holdingCount),
-        hint: holdingCount ? (chainHeld.length ? 'From recorded activity' : 'Manual lots') : 'None yet',
+        value: String(holdingGroups.length),
+        hint: holdingGroups.length ? 'Positions' : 'None yet',
       },
       { label: 'Activity', value: String(activity.length), hint: activity.length ? 'Recorded lines' : 'None yet' },
     ],
@@ -614,6 +780,7 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
     ],
     mix: mix.length > 0 ? mix : undefined,
     holdings,
+    holdingGroups,
     activity,
     chainAddresses,
     primaryAction: 'Add holding',

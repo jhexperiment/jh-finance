@@ -1,6 +1,36 @@
-export const CHAINS = ['btc', 'ltc', 'eth', 'bnb', 'xrp', 'xlm'] as const
+export const CHAINS = ['btc', 'ltc', 'eth', 'bnb', 'bsc', 'xrp', 'xlm'] as const
 
 export type Chain = (typeof CHAINS)[number]
+
+export const NATIVE_TICKER: Record<Chain, string> = {
+  btc: 'BTC',
+  ltc: 'LTC',
+  eth: 'ETH',
+  bnb: 'BNB',
+  bsc: 'BNB',
+  xrp: 'XRP',
+  xlm: 'XLM',
+}
+
+export const CHAIN_LABEL: Record<Chain, string> = {
+  btc: 'Bitcoin',
+  ltc: 'Litecoin',
+  eth: 'Ethereum',
+  bnb: 'BNB Beacon Chain',
+  bsc: 'BNB Smart Chain',
+  xrp: 'XRP',
+  xlm: 'Stellar',
+}
+
+export const CHAIN_PLACEHOLDER: Record<Chain, string> = {
+  btc: 'bc1q…, xpub…, or zpub…',
+  ltc: 'ltc1… or Ltub…',
+  eth: '0x…',
+  bnb: 'bnb1…',
+  bsc: '0x…',
+  xrp: 'r…',
+  xlm: 'G…',
+}
 
 export type FetchLike = typeof fetch
 

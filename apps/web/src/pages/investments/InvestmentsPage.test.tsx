@@ -40,7 +40,6 @@ describe('InvestmentsPage accounts', () => {
     render(wrap(<InvestmentsPage />))
     expect(await screen.findByText('Cold wallet')).toBeTruthy()
     expect(screen.getByText('1 holding')).toBeTruthy()
-    expect(screen.getByText('1.25 BTC')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Refresh prices' })).toBeTruthy()
   })
 

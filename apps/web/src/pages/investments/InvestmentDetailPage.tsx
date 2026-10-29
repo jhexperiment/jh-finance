@@ -4,7 +4,9 @@ import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
 import { ActivityForm, RemoveButton } from '@/components/ledger/ActivityForm'
 import { ChainAddressForm } from '@/components/ledger/ChainAddressForm'
+import { DexVenues } from '@/components/ledger/DexVenues'
 import { HoldingForm } from '@/components/ledger/HoldingForm'
+import { HoldingsTable } from '@/components/ledger/HoldingsTable'
 import { MigrateAccountForm } from '@/components/ledger/MigrateAccountForm'
 import { BarChart } from '@/components/ui/BarChart'
 import { Card } from '@/components/ui/Card'
@@ -45,6 +47,7 @@ export function InvestmentDetailPage() {
 
   const crumbLabel = data.kind === 'crypto' ? 'Crypto' : 'Investments'
   const notice = (location.state as { notice?: string } | null)?.notice
+  const holdingRows = data.holdingGroups ?? data.holdings
 
   return (
     <>
@@ -126,40 +129,18 @@ export function InvestmentDetailPage() {
       ) : null}
       <Card className="mt-6">
         <h2 className="m-0 text-base font-semibold">Holdings</h2>
-        {data.holdings.length > 0 ? (
-          <DataTable
-            columns={[
-              { key: 'fund', label: 'Holding' },
-              { key: 'type', label: 'Type' },
-              { key: 'share', label: 'Share' },
-              { key: 'value', label: 'Value', align: 'right' },
-              { key: 'actions', label: '', align: 'right' },
-            ]}
-          >
-            {data.holdings.map((holding) => (
-              <Row key={holding.id}>
-                <Cell>
-                  <strong className="font-semibold">{holding.name}</strong>
-                </Cell>
-                <Cell>{holding.type}</Cell>
-                <Cell className="num">{holding.share}</Cell>
-                <Cell align="right" className="num">
-                  {holding.value}
-                </Cell>
-                <Cell align="right">
-                  <RemoveButton
-                    onRemove={() => removeHolding.mutate(holding.id)}
-                    pending={removeHolding.isPending}
-                  />
-                </Cell>
-              </Row>
-            ))}
-          </DataTable>
+        {holdingRows.length > 0 ? (
+          <HoldingsTable
+            holdings={holdingRows}
+            onRemove={(holdingId) => removeHolding.mutate(holdingId)}
+            pending={removeHolding.isPending}
+          />
         ) : (
           <p className="mt-4 mb-0 text-sm text-muted">No holdings on this account yet.</p>
         )}
         <HoldingForm accountId={data.id} />
       </Card>
+      {data.kind === 'crypto' ? <DexVenues holdings={holdingRows} /> : null}
       <Card className="mt-6">
         <h2 className="m-0 text-base font-semibold">Recent activity</h2>
         {data.activity.length > 0 ? (

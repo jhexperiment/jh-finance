@@ -7,7 +7,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { CHAINS, type Chain } from 'shared'
+import { CHAINS, CHAIN_LABEL, CHAIN_PLACEHOLDER, type Chain } from 'shared'
 import { api } from '@/api/client'
 import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
@@ -20,13 +20,12 @@ function chainAddressSyncKey(accountId: string) {
   return ['chain-address-sync', accountId] as const
 }
 
-const chainLabel: Record<Chain, string> = {
-  btc: 'Bitcoin',
-  ltc: 'Litecoin',
-  eth: 'Ethereum',
-  bnb: 'BNB Chain',
-  xrp: 'XRP',
-  xlm: 'Stellar',
+const chainLabel = CHAIN_LABEL
+
+function watchHint(chain: Chain): string {
+  if (chain === 'bnb') return 'BNB Beacon Chain (BEP2) addresses start with bnb1…'
+  if (chain === 'bsc') return 'BNB Smart Chain (BEP20) uses 0x… — the same format as Ethereum.'
+  return 'One address, or an Exodus xpub/zpub. Native SegWit and Taproot are separate zpubs.'
 }
 
 function formatSyncAt(value?: string | null): string {
@@ -218,6 +217,7 @@ export function ChainAddressForm({
   addresses: Array<{ id: string; chain: string; address: string; lastSyncAt?: string | null }>
 }) {
   const invalidate = useInvalidateWorkspace()
+  const [watchChain, setWatchChain] = useState<Chain>('btc')
   const [confirming, setConfirming] = useState<{
     id: string
     chain: string
@@ -311,7 +311,11 @@ export function ChainAddressForm({
         }}
       >
         <FormField label="Chain">
-          <SelectInput name="chain" defaultValue="btc">
+          <SelectInput
+            name="chain"
+            value={watchChain}
+            onChange={(event) => setWatchChain(event.target.value as Chain)}
+          >
             {CHAINS.map((chain) => (
               <option key={chain} value={chain}>
                 {chainLabel[chain]}
@@ -319,11 +323,13 @@ export function ChainAddressForm({
             ))}
           </SelectInput>
         </FormField>
-        <FormField
-          label="Address"
-          hint="One address, or an Exodus xpub/zpub. Native SegWit and Taproot are separate zpubs."
-        >
-          <TextInput name="address" required placeholder="bc1q…, xpub…, or zpub…" spellCheck={false} />
+        <FormField label="Address" hint={watchHint(watchChain)}>
+          <TextInput
+            name="address"
+            required
+            placeholder={CHAIN_PLACEHOLDER[watchChain]}
+            spellCheck={false}
+          />
         </FormField>
         <div>
           <PrimaryButton type="submit" disabled={add.isPending}>

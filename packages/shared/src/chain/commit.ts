@@ -20,6 +20,7 @@ export interface ChainAddressSyncResult {
 }
 
 export function chainTxExternalId(tx: ChainTx): string {
+  if (tx.txid.startsWith('bsc-balance:')) return `${tx.chain}:${tx.txid}`
   return `${tx.chain}:${tx.txid}:${tx.asset}:${tx.from}:${tx.to}:${tx.amount}`
 }
 
@@ -33,11 +34,17 @@ export function chainTxDescription(tx: ChainTx): string {
   const qty = money(tx.amount).abs().toString()
   const peer = tx.direction === 'out' ? tx.to : tx.from
   const shortPeer = shortenAddress(peer)
-  if (tx.direction === 'self') return `${qty} ${tx.asset} self-transfer`
+  const network = tx.chain === 'bsc' ? 'BNB Smart Chain' : tx.chain === 'bnb' ? 'BNB Beacon Chain' : ''
+  const onNetwork = network ? ` on ${network}` : ''
+  if (tx.direction === 'self') return `${qty} ${tx.asset} self-transfer${onNetwork}`
   if (tx.direction === 'in') {
-    return shortPeer ? `Received ${qty} ${tx.asset} from ${shortPeer}` : `Received ${qty} ${tx.asset}`
+    return shortPeer
+      ? `Received ${qty} ${tx.asset}${onNetwork} from ${shortPeer}`
+      : `Received ${qty} ${tx.asset}${onNetwork}`
   }
-  return shortPeer ? `Sent ${qty} ${tx.asset} to ${shortPeer}` : `Sent ${qty} ${tx.asset}`
+  return shortPeer
+    ? `Sent ${qty} ${tx.asset}${onNetwork} to ${shortPeer}`
+    : `Sent ${qty} ${tx.asset}${onNetwork}`
 }
 
 export function toCreateTransactionInput(accountId: string, tx: ChainTx): CreateTransactionInput {

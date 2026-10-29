@@ -2,8 +2,10 @@ import {
   IndexerError,
   applyCreateAccount,
   applyCreateChainAddress,
+  applyCreateTransaction,
   commitChainTransactions,
   deriveHdAddress,
+  dexMatchesForHoldings,
   emptyLedger,
   fetchAddressTransactions,
   projectInvestment,
@@ -135,10 +137,114 @@ describe('fetchAddressTransactions', () => {
     });
   });
 
-  it('requires an Etherscan key for BNB and pages txlist plus tokentx', async () => {
-    await expect(
-      fetchAddressTransactions({ chain: 'bnb', address: '0xabc' }),
-    ).rejects.toBeInstanceOf(IndexerError);
+  it('pages BNB Beacon explorer history and pulls linked BSC balances', async () => {
+    const address = 'bnb1hd4la4eqvukujqklfv839euvy9zhxrrnhzu45j';
+    const evm = '0x9e51b28061ac51b8fad1b6bc49488d260f6b5921';
+    const rows = await fetchAddressTransactions({
+      chain: 'bnb',
+      address,
+      fetch: mockFetch((url) => {
+        if (url.includes('explorer.bnbchain.org')) {
+          return {
+            txNums: 3,
+            txArray: [
+              {
+                txHash: 'cross-out',
+                timeStamp: 1716336499957,
+                fromAddr: address,
+                value: 9.90210411,
+                txAsset: 'BNB',
+                data: JSON.stringify({
+                  toAddress: evm,
+                  amount: { amount: 990210411, denom: 'BNB' },
+                }),
+                code: 0,
+              },
+              {
+                txHash: 'token-in',
+                timeStamp: 1565648767376,
+                fromAddr: 'bnb1fahe7y8sz9h0r9wm8yvnu8ujm2244lr22cm76f',
+                toAddr: address,
+                value: 7,
+                txAsset: 'VRAB-B56',
+                code: 0,
+              },
+              {
+                txHash: 'child-skip',
+                timeStamp: 1563637753153,
+                txFee: 0.15,
+                hasChildren: 1,
+                code: 0,
+              },
+            ],
+          };
+        }
+        if (url.includes('binplorer.com') && url.includes(evm)) {
+          return {
+            ETH: { rawBalance: '9902104110000000000' },
+            tokens: [
+              {
+                tokenInfo: { symbol: 'MSVP', decimals: '18' },
+                rawBalance: '951079956392981374',
+              },
+            ],
+          };
+        }
+        throw new Error(url);
+      }),
+    });
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({
+      chain: 'bnb',
+      txid: 'cross-out',
+      asset: 'BNB',
+      amount: '-9.90210411',
+      direction: 'out',
+      to: evm,
+    });
+    expect(rows[1]).toMatchObject({
+      txid: 'token-in',
+      asset: 'VRAB-B56',
+      amount: '7',
+      direction: 'in',
+    });
+    expect(rows[2]).toMatchObject({
+      txid: `bsc-balance:${evm}:BNB`,
+      asset: 'BNB',
+      amount: '9.90210411',
+      direction: 'in',
+      to: evm,
+    });
+    expect(rows[3]).toMatchObject({
+      asset: 'MSVP',
+      direction: 'in',
+    });
+  });
+
+  it('reads BNB Smart Chain balances from Binplorer without an Etherscan key', async () => {
+    const address = '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3';
+    const rows = await fetchAddressTransactions({
+      chain: 'bnb',
+      address,
+      fetch: mockFetch((url) => {
+        if (!url.includes('binplorer.com')) throw new Error(url);
+        return {
+          ETH: { rawBalance: '1500000000000000000' },
+          tokens: [
+            {
+              tokenInfo: { symbol: 'USDT', decimals: '18' },
+              rawBalance: '2500000000000000000',
+            },
+          ],
+        };
+      }),
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ asset: 'BNB', amount: '1.5', direction: 'in' });
+    expect(rows[1]).toMatchObject({ asset: 'USDT', amount: '2.5', direction: 'in' });
+  });
+
+  it('uses Etherscan for BNB Smart Chain 0x when a key is present', async () => {
 
     const address = '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3';
     const rows = await fetchAddressTransactions({
@@ -182,7 +288,7 @@ describe('fetchAddressTransactions', () => {
     });
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      chain: 'bnb',
+      chain: 'bsc',
       asset: 'BNB',
       amount: '-2',
       direction: 'out',
@@ -463,6 +569,65 @@ describe('commitChainTransactions', () => {
     expect(view.chainAddresses).toHaveLength(1);
     expect(view.extra).toBe('1 holding');
     expect(view.holdingTotal).toBe('0.00001149 BTC');
+  });
+
+  it('splits BNB Beacon Chain and BNB Smart Chain holdings', () => {
+    const snapshot = emptyLedger();
+    const account = applyCreateAccount(snapshot, { name: 'Cold wallet', kind: 'crypto' });
+    applyCreateTransaction(snapshot, {
+      accountId: account.id,
+      description: 'Beacon leftover',
+      amount: '0.004',
+      asset: 'BNB',
+      externalId: 'bnb:beacon:BNB:a:b:0.004',
+    });
+    applyCreateTransaction(snapshot, {
+      accountId: account.id,
+      description: 'BEP2 token',
+      amount: '7',
+      asset: 'VRAB-B56',
+      externalId: 'bnb:token:VRAB-B56:a:b:7',
+    });
+    applyCreateTransaction(snapshot, {
+      accountId: account.id,
+      description: 'BSC BNB',
+      amount: '9.90210411',
+      asset: 'BNB',
+      externalId: 'bnb:bsc-balance:0xabc:BNB',
+    });
+    applyCreateTransaction(snapshot, {
+      accountId: account.id,
+      description: 'BEP20 token',
+      amount: '0.95',
+      asset: 'MSVP',
+      externalId: 'bnb:bsc-balance:0xabc:MSVP',
+    });
+    const view = projectInvestment(account, snapshot);
+    expect(view.holdingGroups?.map((row) => row.name)).toEqual([
+      'BNB Beacon Chain',
+      'BNB Smart Chain',
+    ]);
+    expect(view.holdingGroups?.[0]).toMatchObject({
+      symbol: 'BNB',
+      quantity: '0.004',
+      chain: 'bnb',
+    });
+    expect(view.holdingGroups?.[0]?.tokens?.map((row) => row.symbol)).toEqual(['VRAB']);
+    expect(view.holdingGroups?.[1]).toMatchObject({
+      symbol: 'BNB',
+      quantity: '9.90210411',
+      chain: 'bsc',
+    });
+    expect(view.holdingGroups?.[1]?.tokens?.map((row) => row.symbol)).toEqual(['MSVP']);
+    const matches = dexMatchesForHoldings(view.holdingGroups ?? []);
+    expect(matches.map((row) => row.venue.name)).toEqual([
+      'PancakeSwap',
+      'THENA',
+      'Uniswap',
+      '1inch',
+    ]);
+    expect(matches[0]?.assets.map((row) => row.symbol)).toEqual(['BNB', 'MSVP']);
+    expect(matches[0]?.networks).toEqual(['BNB Smart Chain']);
   });
 });
 

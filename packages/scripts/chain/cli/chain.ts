@@ -16,7 +16,10 @@ export function createChainCommand(): Command {
     .requiredOption('--chain <chain>', `One of ${CHAINS.join(', ')}`)
     .requiredOption('--address <address>', 'Public address or HD xpub/ypub/zpub')
     .option('--output <path>', 'Write JSON to this file as well as stdout')
-    .option('--etherscan-key <key>', 'Etherscan API key (BNB). Defaults to ETHERSCAN_API_KEY')
+    .option(
+      '--etherscan-key <key>',
+      'Optional Etherscan key for full BNB Smart Chain history. Defaults to ETHERSCAN_API_KEY; Binplorer balances are used otherwise',
+    )
     .option(
       '--horizon-url <url>',
       'Stellar Horizon base URL. Defaults to STELLAR_HORIZON_URL or Blockdaemon if BLOCKDAEMON_API_KEY is set',

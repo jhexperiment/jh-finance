@@ -37,6 +37,8 @@ describe('InvestmentDetailPage crypto addresses', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Watch address' }))
     expect(await screen.findByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'BNB Beacon Chain' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'BNB Smart Chain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Fetch transactions' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy()
     expect(screen.getByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv').className).toMatch(/truncate/)
@@ -120,7 +122,7 @@ describe('InvestmentDetailPage crypto addresses', () => {
     expect(screen.getByText('Received from watch')).toBeTruthy()
   })
 
-  it('shows native holding total instead of USD on the value tile', async () => {
+  it('shows USD on the value tile and native quantity in holdings', async () => {
     const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
     await api.createTransaction({
       accountId: account.id,
@@ -137,8 +139,101 @@ describe('InvestmentDetailPage crypto addresses', () => {
       asset: 'BTC',
     })
     render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
-    expect(await screen.findByText('1.25 BTC')).toBeTruthy()
-    expect(screen.queryByText('$0.00')).toBeNull()
+    expect(await screen.findByText('Recorded holdings')).toBeTruthy()
+    expect(screen.getAllByText('Bitcoin').length).toBeGreaterThan(0)
+    expect(screen.getByText('1.25')).toBeTruthy()
+    expect(screen.getAllByText('BTC').length).toBeGreaterThan(0)
+  })
+
+  it('expands chain tokens under the native holding', async () => {
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
+    await api.createHolding({
+      accountId: account.id,
+      name: 'Ethereum',
+      symbol: 'ETH',
+      quantity: '2.6',
+      value: '4352.10',
+      costBasis: '5052.10',
+    })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2024-01-01',
+      description: 'Received ETH',
+      amount: '2.6',
+      asset: 'ETH',
+      externalId: 'eth:1:ETH:a:b:2.6',
+    })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2024-01-01',
+      description: 'Received AZ',
+      amount: '16888',
+      asset: 'AZ',
+      externalId: 'eth:2:AZ:a:b:16888',
+    })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect((await screen.findAllByText('$4,352.10')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Recorded holdings')).toBeTruthy()
+    expect(screen.getByText(/· 1 token/)).toBeTruthy()
+    expect(screen.queryByText('AZ token')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand tokens' }))
+    expect(screen.getByText('AZ token')).toBeTruthy()
+    expect(screen.getAllByText('16888').length).toBeGreaterThan(0)
+  })
+
+  it('lists DEXes that can swap BNB Smart Chain holdings', async () => {
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2024-01-01',
+      description: 'BSC BNB',
+      amount: '9.90210411',
+      asset: 'BNB',
+      externalId: 'bnb:bsc-balance:0xabc:BNB',
+    })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2024-01-01',
+      description: 'BEP20 token',
+      amount: '0.95',
+      asset: 'MSVP',
+      externalId: 'bnb:bsc-balance:0xabc:MSVP',
+    })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByRole('heading', { name: 'Decentralized exchanges' })).toBeTruthy()
+    const pancake = screen.getByRole('link', { name: 'PancakeSwap' })
+    expect(pancake.getAttribute('href')).toBe('https://pancakeswap.finance/swap')
+    expect(screen.getByRole('link', { name: 'THENA' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Uniswap' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '1inch' })).toBeTruthy()
+    const dex = screen.getByRole('heading', { name: 'Decentralized exchanges' }).closest('div')
+    expect(dex?.textContent).toContain('BNB')
+    expect(dex?.textContent).toContain('MSVP')
+    expect(dex?.textContent).not.toContain('9.90210411')
+    expect(dex?.textContent).not.toContain('0.95')
+    expect(screen.queryByRole('link', { name: 'Sologenic' })).toBeNull()
+  })
+
+  it('notes native bitcoin cannot swap on the listed DEXes', async () => {
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2017-05-22',
+      description: 'Received',
+      amount: '1.25',
+      asset: 'BTC',
+    })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByRole('heading', { name: 'Decentralized exchanges' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'PancakeSwap' })).toBeNull()
+    expect(screen.getByText(/Bitcoin balances are not listed/)).toBeTruthy()
+  })
+
+  it('does not list DEXes on a brokerage account', async () => {
+    const account = await api.createAccount({ name: 'Brokerage', kind: 'investment' })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByRole('heading', { name: 'Holdings' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Decentralized exchanges' })).toBeNull()
   })
 
   it('shows the year on activity dates outside the current year', async () => {
@@ -234,7 +329,8 @@ describe('InvestmentDetailPage migrate', () => {
     ).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Keep wallet' })).toBeTruthy()
     expect(screen.getByText('Received')).toBeTruthy()
-    expect(screen.getByText('1.25 BTC')).toBeTruthy()
+    expect(screen.getByText('1.25')).toBeTruthy()
+    expect(screen.getAllByText('BTC').length).toBeGreaterThan(0)
     expect(screen.getByText('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')).toBeTruthy()
     expect(screen.getAllByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv')).toHaveLength(1)
     await expect(api.getInvestment(source.id)).rejects.toThrow()

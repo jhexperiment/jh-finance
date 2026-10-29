@@ -15,7 +15,7 @@ import type {
 
 const accountKind = z.enum(['credit-card', 'bank', 'investment', 'crypto']);
 const billKind = z.enum(['utility', 'insurance']);
-const chainId = z.enum(['btc', 'ltc', 'eth', 'bnb', 'xrp', 'xlm']);
+const chainId = z.enum(['btc', 'ltc', 'eth', 'bnb', 'bsc', 'xrp', 'xlm']);
 
 const createAccountSchema = z.object({
   name: z.string().trim().min(1).max(120),
