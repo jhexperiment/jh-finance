@@ -1,16 +1,25 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { HoldingService } from '@libs/common';
+import { HoldingService, PriceSyncService } from '@libs/common';
 
 @ApiTags('investments')
 @Controller('investments')
 export class InvestmentController {
-  constructor(private readonly holdingService: HoldingService) {}
+  constructor(
+    private readonly holdingService: HoldingService,
+    private readonly priceSync: PriceSyncService,
+  ) {}
 
   @Get('overview')
   @ApiOkResponse({ description: 'Investments and crypto totals' })
   overview() {
     return this.holdingService.overview();
+  }
+
+  @Post('prices')
+  @ApiOkResponse({ description: 'Refresh crypto USD marks from CoinGecko' })
+  syncPrices() {
+    return this.priceSync.sync();
   }
 
   @Get()

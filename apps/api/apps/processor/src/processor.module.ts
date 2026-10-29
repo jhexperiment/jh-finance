@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@libs/config';
-import { BullmqModule, DragonflyModule, HoldingModule, LoggerModule, PrismaModule } from '@libs/common';
+import { BullmqModule, DragonflyModule, LoggerModule, PrismaModule } from '@libs/common';
 import { HealthModule } from './health/health.module';
 import { PriceSyncModule } from './price-sync/price-sync.module';
 
@@ -11,7 +11,6 @@ import { PriceSyncModule } from './price-sync/price-sync.module';
     PrismaModule,
     DragonflyModule,
     BullmqModule,
-    HoldingModule,
     HealthModule,
     PriceSyncModule,
   ],

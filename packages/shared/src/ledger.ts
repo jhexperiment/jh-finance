@@ -597,7 +597,7 @@ export function projectInvestment(account: LedgerAccount, snapshot: LedgerSnapsh
     seriesCaption: chainTotals.length
       ? 'Native total from recorded activity. Not USD.'
       : holdingRows.length
-        ? 'Value from holdings. Prices are not live.'
+        ? 'Value from holdings. Refresh prices for a CoinGecko USD mark.'
         : 'No holdings yet. Add one or upload a statement later.',
     details: [
       { label: 'Account type', value: account.subtype },
@@ -879,12 +879,12 @@ export function projectInvestmentsOverview(snapshot: LedgerSnapshot): Investment
     holdings: holdings.slice(0, 12),
     callout: holdings.length
       ? {
-          title: 'Holdings are manual',
-          body: 'Values are what you typed. Prices are not live, and no trades are placed.',
+          title: 'USD marks from CoinGecko',
+          body: 'Refresh prices to value crypto holdings. Quantity still comes from chain activity or what you typed. No trades are placed.',
         }
       : {
           title: 'No holdings yet',
-          body: 'Add a holding to an account, or import a statement later.',
+          body: 'Add a holding, watch a chain address, then refresh prices for a USD mark.',
         },
   }
 }
@@ -1089,6 +1089,16 @@ export function applyDeleteChainAddress(snapshot: LedgerSnapshot, id: string): v
 export function applyTouchChainAddress(row: LedgerChainAddress, lastSyncAt = nowIso()): LedgerChainAddress {
   row.lastSyncAt = lastSyncAt
   row.updatedAt = lastSyncAt
+  return row
+}
+
+export function applyUpdateHolding(row: LedgerHolding, input: UpdateHoldingInput): LedgerHolding {
+  if (input.name !== undefined) row.name = input.name.trim()
+  if (input.symbol !== undefined) row.symbol = input.symbol?.trim() || null
+  if (input.quantity !== undefined) row.quantity = parseMoneyInput(input.quantity, 8)
+  if (input.value !== undefined) row.value = parseMoneyInput(input.value)
+  if (input.costBasis !== undefined) row.costBasis = parseMoneyInput(input.costBasis)
+  row.updatedAt = nowIso()
   return row
 }
 

@@ -22,6 +22,7 @@ import {
   type LedgerHolding,
   type LedgerTransaction,
   type OverviewSnapshot,
+  type PriceSyncResult,
   type UpdateAccountInput,
   type BankStatementImportResult,
   type BankStatementOverlap,
@@ -80,6 +81,7 @@ export interface ClientApi {
   ) => Promise<LedgerChainAddress>
   deleteChainAddress: (accountId: string, addressId: string) => Promise<void>
   syncChainAddress: (accountId: string, addressId: string) => Promise<ChainAddressSyncResult>
+  syncPrices: () => Promise<PriceSyncResult>
 }
 
 class ApiError extends Error {
@@ -172,6 +174,7 @@ function memoryClient(): ClientApi {
       memory.deleteChainAddress(addressId)
     },
     syncChainAddress: async (_accountId, addressId) => memory.syncChainAddress(addressId),
+    syncPrices: async () => memory.syncPrices(),
   }
 }
 
@@ -245,6 +248,7 @@ function liveClient(baseUrl: string): ClientApi {
       sendJson(root, 'DELETE', `/accounts/${accountId}/chain-addresses/${addressId}`),
     syncChainAddress: (accountId, addressId) =>
       sendJson(root, 'POST', `/accounts/${accountId}/chain-addresses/${addressId}/sync`),
+    syncPrices: () => sendJson(root, 'POST', '/investments/prices'),
   }
 }
 

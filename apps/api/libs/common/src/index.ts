@@ -8,5 +8,6 @@ export * from './ingest';
 export * from './account';
 export * from './transaction';
 export * from './holding';
+export * from './price';
 export * from './bill';
 export * from './overview';

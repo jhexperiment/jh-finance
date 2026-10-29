@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { HoldingModule } from '@libs/common';
+import { PriceSyncModule as PriceSyncDomainModule } from '@libs/common';
 import { PriceSyncProcessor } from './price-sync.processor';
 
 @Module({
-  imports: [HoldingModule],
+  imports: [PriceSyncDomainModule],
   providers: [PriceSyncProcessor],
 })
 export class PriceSyncModule {}

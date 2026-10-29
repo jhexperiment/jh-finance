@@ -6,8 +6,12 @@ import {
   applyCreateTransaction,
   applyDeleteChainAddress,
   applyMigrateAccount,
+  applyHoldingMarks,
   applyUpdateAccount,
   applyUpdateBill,
+  collectCryptoPositions,
+  planHoldingMarks,
+  stableUsdFor,
   commitBankStatement,
   commitCardStatement,
   commitChainTransactions,
@@ -153,6 +157,23 @@ export class MemoryLedger {
     const exists = this.snapshot.chainAddresses.some((row) => row.id === id)
     if (!exists) throw notFound('Watched address')
     applyDeleteChainAddress(this.snapshot, id)
+  }
+
+  syncPrices() {
+    const positions = collectCryptoPositions(this.snapshot)
+    const quotes = new Map<string, string>()
+    for (const row of positions) {
+      const stable = stableUsdFor(row.ticker)
+      if (stable) quotes.set(row.ticker, stable)
+    }
+    const { marks, missing } = planHoldingMarks(positions, quotes)
+    const applied = applyHoldingMarks(this.snapshot, marks)
+    return {
+      ...applied,
+      quotedCount: quotes.size,
+      skippedCount: positions.length - marks.length,
+      missing,
+    }
   }
 
   async syncChainAddress(id: string) {

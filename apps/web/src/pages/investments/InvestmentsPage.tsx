@@ -1,20 +1,27 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/client'
 import { AllocationLegend } from '@/components/ui/Allocation'
 import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { PageHeader, PrimaryButton } from '@/components/ui/PageHeader'
+import { FormError } from '@/components/ui/FormField'
+import { GhostButton, PageHeader, PrimaryButton } from '@/components/ui/PageHeader'
 import { Metric } from '@/components/ui/Metric'
 import { Pill } from '@/components/ui/Pill'
+import { mutationError, useInvalidateWorkspace } from '@/lib/workspace'
 
 export function InvestmentsPage() {
+  const invalidate = useInvalidateWorkspace()
   const overview = useQuery({
     queryKey: ['investments-overview'],
     queryFn: api.getInvestmentsOverview,
   })
   const accounts = useQuery({ queryKey: ['investments'], queryFn: api.getInvestments })
+  const refresh = useMutation({
+    mutationFn: () => api.syncPrices(),
+    onSuccess: () => invalidate(),
+  })
   if (!overview.data || !accounts.data) return null
 
   const count = accounts.data.length
@@ -26,8 +33,18 @@ export function InvestmentsPage() {
       <PageHeader
         title="Investments and crypto"
         subtitle={count ? `${count} ${count === 1 ? 'account' : 'accounts'}` : 'No investment accounts yet'}
-        actions={<PrimaryButton to="/investments/new">Add account</PrimaryButton>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {count > 0 ? (
+              <GhostButton onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+                {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
+              </GhostButton>
+            ) : null}
+            <PrimaryButton to="/investments/new">Add account</PrimaryButton>
+          </div>
+        }
       />
+      {refresh.isError ? <FormError message={mutationError(refresh.error)} /> : null}
       {count === 0 ? (
         <EmptyState
           title="No investment accounts yet"

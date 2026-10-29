@@ -12,6 +12,7 @@ export const envSchema = z.object({
   ETHERSCAN_API_KEY: z.string().optional(),
   STELLAR_HORIZON_URL: z.string().optional(),
   BLOCKDAEMON_API_KEY: z.string().optional(),
+  COINGECKO_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

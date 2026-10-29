@@ -11,9 +11,10 @@ import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
 import { KvList } from '@/components/ui/KvList'
 import { Metric } from '@/components/ui/Metric'
+import { FormError } from '@/components/ui/FormField'
 import { GhostButton, PageHeader } from '@/components/ui/PageHeader'
 import { StatusPill } from '@/components/ui/Status'
-import { useInvalidateWorkspace } from '@/lib/workspace'
+import { mutationError, useInvalidateWorkspace } from '@/lib/workspace'
 
 export function InvestmentDetailPage() {
   const { id = '' } = useParams()
@@ -35,6 +36,10 @@ export function InvestmentDetailPage() {
     mutationFn: (transactionId: string) => api.deleteTransaction(transactionId),
     onSuccess: () => invalidate(),
   })
+  const refresh = useMutation({
+    mutationFn: () => api.syncPrices(),
+    onSuccess: () => invalidate(),
+  })
   if (isError) return <Navigate to="/investments" replace />
   if (!data) return null
 
@@ -49,11 +54,17 @@ export function InvestmentDetailPage() {
         subtitle={data.subtitle}
         actions={
           <div className="flex flex-wrap gap-2">
+            {data.kind === 'crypto' ? (
+              <GhostButton onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+                {refresh.isPending ? 'Refreshing…' : 'Refresh prices'}
+              </GhostButton>
+            ) : null}
             <GhostButton onClick={() => setMigrateOpen(true)}>Migrate</GhostButton>
             <GhostButton to={`/investments/${data.id}/edit`}>{data.secondaryAction}</GhostButton>
           </div>
         }
       />
+      {refresh.isError ? <FormError message={mutationError(refresh.error)} /> : null}
       {notice ? <p className="mt-4 mb-0 text-sm text-gain">{notice}</p> : null}
       {migrateOpen ? (
         <MigrateAccountForm

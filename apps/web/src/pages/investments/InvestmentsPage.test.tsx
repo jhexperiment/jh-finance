@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { createClient, resetMemoryClient } from 'client-api-sdk'
@@ -41,5 +41,21 @@ describe('InvestmentsPage accounts', () => {
     expect(await screen.findByText('Cold wallet')).toBeTruthy()
     expect(screen.getByText('1 holding')).toBeTruthy()
     expect(screen.getByText('1.25 BTC')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Refresh prices' })).toBeTruthy()
+  })
+
+  it('marks stablecoin chain balances in USD', async () => {
+    const account = await api.createAccount({ name: 'Exchange', kind: 'crypto' })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2024-01-01',
+      description: 'Received',
+      amount: '250.5',
+      asset: 'USDC',
+    })
+    render(wrap(<InvestmentsPage />))
+    expect(await screen.findByText('Exchange')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh prices' }))
+    expect((await screen.findAllByText('$250.50')).length).toBeGreaterThan(0)
   })
 })
