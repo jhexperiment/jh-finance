@@ -12,7 +12,7 @@ import { api } from '@/api/client'
 import { Card } from '@/components/ui/Card'
 import { Cell, DataTable, Row } from '@/components/ui/DataTable'
 import { FormError, FormField, SelectInput, TextInput } from '@/components/ui/FormField'
-import { GhostButton, PrimaryButton } from '@/components/ui/PageHeader'
+import { DangerButton, GhostButton, PrimaryButton } from '@/components/ui/PageHeader'
 import { mutationError, useInvalidateWorkspace } from '@/lib/workspace'
 import { RemoveButton } from './ActivityForm'
 
@@ -159,6 +159,57 @@ function WatchedAddress({ address }: { address: string }) {
   )
 }
 
+function StopWatchingDialog({
+  chain,
+  address,
+  pending,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  chain: string
+  address: string
+  pending?: boolean
+  error?: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="watch-dlg-title"
+      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(26,29,33,.35)] p-4"
+    >
+      <div className="w-full max-w-[440px] rounded-2xl border border-line bg-white p-6 shadow-[0_12px_40px_rgba(26,29,33,.18)]">
+        <h2 id="watch-dlg-title" className="m-0 text-base font-semibold">
+          Stop watching this {chain} address?
+        </h2>
+        <p className="num mt-2.5 mb-0 text-xs break-all text-muted">{address}</p>
+        <p className="mt-2.5 mb-0 text-[13px] leading-[1.5] text-muted">
+          Stored transactions stay in recent activity.
+        </p>
+        <FormError message={error} />
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <GhostButton onClick={onCancel}>Cancel</GhostButton>
+          <DangerButton onClick={onConfirm} disabled={pending}>
+            Remove address
+          </DangerButton>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 export function ChainAddressForm({
   accountId,
   addresses,
@@ -167,13 +218,21 @@ export function ChainAddressForm({
   addresses: Array<{ id: string; chain: string; address: string; lastSyncAt?: string | null }>
 }) {
   const invalidate = useInvalidateWorkspace()
+  const [confirming, setConfirming] = useState<{
+    id: string
+    chain: string
+    address: string
+  } | null>(null)
   const add = useMutation({
     mutationFn: (input: { chain: Chain; address: string }) => api.createChainAddress(accountId, input),
     onSuccess: () => invalidate(),
   })
   const remove = useMutation({
     mutationFn: (addressId: string) => api.deleteChainAddress(accountId, addressId),
-    onSuccess: () => invalidate(),
+    onSuccess: () => {
+      setConfirming(null)
+      void invalidate()
+    },
   })
   const syncKey = chainAddressSyncKey(accountId)
   const sync = useMutation({
@@ -185,6 +244,9 @@ export function ChainAddressForm({
     filters: { mutationKey: syncKey, status: 'pending' },
     select: (mutation) => mutation.state.variables as string | undefined,
   })
+  useEffect(() => {
+    setConfirming(null)
+  }, [accountId])
 
   return (
     <Card className="mt-6">
@@ -217,8 +279,13 @@ export function ChainAddressForm({
                     {pendingSyncIds.includes(row.id) ? 'Fetching…' : 'Fetch transactions'}
                   </GhostButton>
                   <RemoveButton
-                    onRemove={() => remove.mutate(row.id)}
-                    pending={remove.isPending}
+                    onRemove={() =>
+                      setConfirming({
+                        id: row.id,
+                        chain: chainLabel[row.chain as Chain] ?? row.chain,
+                        address: row.address,
+                      })
+                    }
                   />
                 </span>
               </Cell>
@@ -268,11 +335,9 @@ export function ChainAddressForm({
         message={
           add.isError
             ? mutationError(add.error)
-            : remove.isError
-              ? mutationError(remove.error)
-              : sync.isError
-                ? mutationError(sync.error)
-                : undefined
+            : sync.isError
+              ? mutationError(sync.error)
+              : undefined
         }
       />
       {sync.isSuccess ? (
@@ -280,6 +345,19 @@ export function ChainAddressForm({
           Fetched {sync.data.fetchedCount}, imported {sync.data.importedCount} new, skipped{' '}
           {sync.data.skippedCount} already stored.
         </p>
+      ) : null}
+      {confirming ? (
+        <StopWatchingDialog
+          chain={confirming.chain}
+          address={confirming.address}
+          pending={remove.isPending}
+          error={remove.isError ? mutationError(remove.error) : undefined}
+          onCancel={() => {
+            remove.reset()
+            setConfirming(null)
+          }}
+          onConfirm={() => remove.mutate(confirming.id)}
+        />
       ) : null}
     </Card>
   )

@@ -92,6 +92,34 @@ describe('InvestmentDetailPage crypto addresses', () => {
     expect(await screen.findByRole('button', { name: 'Fetching…' })).toBeTruthy()
   })
 
+  it('asks before unwatching an address and leaves stored activity', async () => {
+    const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
+    await api.createChainAddress(account.id, {
+      chain: 'btc',
+      address: '1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv',
+    })
+    await api.createTransaction({
+      accountId: account.id,
+      postedAt: '2017-05-22',
+      description: 'Received from watch',
+      amount: '0.10',
+    })
+    render(wrap(<InvestmentDetailPage />, `/investments/${account.id}`))
+    expect(await screen.findByRole('heading', { name: 'Watched addresses' })).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
+    expect(
+      screen.getByRole('dialog', { name: 'Stop watching this Bitcoin address?' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Stored transactions stay in recent activity.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText('1wiz18xYmhRX6xStj2b9t1rwWX4GKUgpv')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Remove address' }))
+    expect(await screen.findByText('No addresses watched yet.')).toBeTruthy()
+    expect(screen.getByText('Received from watch')).toBeTruthy()
+  })
+
   it('shows native holding total instead of USD on the value tile', async () => {
     const account = await api.createAccount({ name: 'Cold wallet', kind: 'crypto' })
     await api.createTransaction({

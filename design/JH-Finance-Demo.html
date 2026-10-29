@@ -494,6 +494,18 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
       (edit ? '<div style="margin-top:24px">' + act("Delete account", "confirm", ' data-kind="inv" data-id="' + i.id + '" style="color:var(--loss)"') + '</div>' + confirmBlock("inv", i.id, "Delete this account and its activity?") : "");
   }
 
+  function watchConfirm(i) {
+    if (!(S.confirm && S.confirm.kind === "watch" && S.confirm.owner === i.id)) return "";
+    var w = i.watch.filter(function (x) { return x.id === S.confirm.id; })[0];
+    if (!w) return "";
+    return '<div role="dialog" aria-modal="true" aria-labelledby="watch-dlg-title" style="position:fixed;inset:0;z-index:60;background:rgba(26,29,33,.35);display:grid;place-items:center;padding:16px">' +
+      '<div class="card" style="width:100%;max-width:440px;box-shadow:0 12px 40px rgba(26,29,33,.18)">' +
+      '<h2 id="watch-dlg-title">Stop watching this ' + esc(w.chain) + ' address?</h2>' +
+      '<p class="hint addr num" style="margin-top:10px">' + esc(w.addr) + '</p>' +
+      '<p class="note" style="margin-top:10px">Stored transactions stay in recent activity.</p>' +
+      '<div class="frow">' + act("Cancel", "cancel-confirm", "", false) +
+      act("Remove address", "del-watch", ' data-owner="' + i.id + '" data-id="' + w.id + '" style="color:var(--loss)"', false) + '</div></div></div>';
+  }
   function watchCard(i) {
     var msg = S.watchMsg[i.id] || { ok: "", err: "" };
     var rows = i.watch.length ? i.watch.map(function (w) {
@@ -503,11 +515,11 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>';
       return '<tr><td>' + esc(w.chain) + '</td><td>' + cell + '</td><td class="lbl">' + (w.last ? esc(w.last) : "Never") + '</td><td class="r"><div class="flex">' +
         (pending ? '<button class="btn spin" type="button" disabled>Fetching…</button>' : act("Fetch transactions", "fetch", ' data-owner="' + i.id + '" data-id="' + w.id + '"')) +
-        '<button class="rm" type="button" data-act="del-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>';
+        '<button class="rm" type="button" data-act="confirm-watch" data-owner="' + i.id + '" data-id="' + w.id + '">Remove</button></div></td></tr>';
     }).join("") : "";
     return '<section class="card stack"><h2>Watched addresses</h2><p class="sub" style="margin-top:4px;font-size:13px">Public receive addresses or HD xpub/ypub/zpub. Do not paste a seed phrase or private key.</p>' +
       (i.watch.length ? '<div style="overflow-x:auto"><table><thead><tr><th>Chain</th><th>Address</th><th>Last fetch</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-        : '<p class="note">No addresses watched yet.</p>') +
+        : '<p class="note">No addresses watched yet.</p>') + watchConfirm(i) +
       '<form data-form="watch-add" data-id="' + i.id + '" class="form" style="max-width:576px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)"><div class="fgrid">' +
       field("chain", "Chain", { options: CHAINS, value: "Bitcoin" }) +
       field("addr", "Address", { ph: "bc1q…, xpub…, or zpub…", hint: "One address, or an Exodus xpub/zpub. Native SegWit and Taproot are separate zpubs." }) +
@@ -600,6 +612,9 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     if (t) hideTip();
   });
   window.addEventListener("scroll", hideTip, true);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && S.confirm) { S.confirm = null; render(); }
+  });
 
   /* ---------- render ---------- */
   function render() {
@@ -647,7 +662,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "del-watch": function (d) {
       var i = find("inv", d.owner); if (!i) return;
       i.watch = i.watch.filter(function (w) { return w.id !== d.id; });
-      delete S.watchMsg[i.id];
+      delete S.watchMsg[i.id]; S.confirm = null;
       commit("Address unwatched. Stored transactions stay in recent activity.");
     },
     "fetch": function (d) {
@@ -675,6 +690,7 @@ ul.plain{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:12px;font-si
     "upload-list": function () { S.uploadOwner = (S.data.cards[0] || S.data.banks[0] || {}).id; document.getElementById("pdf").click(); },
     "reset": function () { S.data = seed(); S.confirm = null; go("overview"); persist(); },
     "clear": function () { S.data = { cards: [], banks: [], invest: [], bills: [] }; go("overview"); persist(); },
+    "confirm-watch": function (d) { S.confirm = { kind: "watch", id: d.id, owner: d.owner }; render(); },
     "migrate": function (d) { S.migrate = { id: d.id }; S.confirm = null; render(); },
     "cancel-migrate": function () { S.migrate = null; render(); },
     "copy": function (d, el) {
